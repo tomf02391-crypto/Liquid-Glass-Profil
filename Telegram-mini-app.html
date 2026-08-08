@@ -2,1106 +2,1822 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Telegram Profile · Liquid Glass Mini App</title>
-<!-- Telegram Mini App SDK -->
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Orbit-星轨引擎 — 超高胜率星轨集成引擎</title>
 <style>
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    -webkit-font-smoothing: antialiased;
-    -webkit-tap-highlight-color: transparent;
-  }
+/* ================================================================
+   Orbit-星轨引擎 — 苹果液态玻璃增强版 CSS
+   多层玻璃 · 高光边缘 · 噪点纹理 · 光折射动画
+   ================================================================ */
 
-  :root {
-    --tg-bg: #1a1a2e;
-    --tg-secondary-bg: #16162a;
-    --tg-text: #ffffff;
-    --tg-hint: rgba(255,255,255,0.5);
-    --tg-link: #5AC8FA;
-    --tg-button: #2AABEE;
-    --tg-button-text: #ffffff;
-    --tg-blue: #2AABEE;
-    --tg-green: #00D161;
-    --glass-bg: rgba(255, 255, 255, 0.08);
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --safe-top: env(safe-area-inset-top, 0px);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-  }
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-  /* 浅色主题 */
-  body.light-mode {
-    --tg-bg: #f0f2f5;
-    --tg-secondary-bg: #ffffff;
-    --tg-text: #1a1a2e;
-    --tg-hint: rgba(0,0,0,0.45);
-    --glass-bg: rgba(255, 255, 255, 0.6);
-    --glass-border: rgba(0, 0, 0, 0.08);
-  }
+:root {
+    /* 玻璃材质变量 */
+    --glass-1: rgba(255, 255, 255, 0.07);
+    --glass-2: rgba(255, 255, 255, 0.04);
+    --glass-3: rgba(255, 255, 255, 0.10);
+    --glass-hover: rgba(255, 255, 255, 0.14);
+    --glass-border: rgba(255, 255, 255, 0.10);
+    --glass-border-bright: rgba(255, 255, 255, 0.22);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.40), 0 2px 8px rgba(0, 0, 0, 0.20);
+    --glass-inset: inset 0 1px 1px rgba(255, 255, 255, 0.18), inset 0 -1px 1px rgba(0, 0, 0, 0.10);
 
-  html, body {
-    height: 100%;
-    overflow: hidden;
-  }
+    /* 文字层级 */
+    --text-1: rgba(255, 255, 255, 0.96);
+    --text-2: rgba(255, 255, 255, 0.62);
+    --text-3: rgba(255, 255, 255, 0.40);
+    --text-4: rgba(255, 255, 255, 0.25);
 
-  body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: var(--tg-bg);
-    color: var(--tg-text);
-    transition: background 0.4s ease, color 0.4s ease;
-  }
+    /* 苹果系统色 */
+    --blue: #0A84FF;
+    --purple: #BF5AF2;
+    --green: #30D158;
+    --orange: #FF9F0A;
+    --red: #FF453A;
+    --cyan: #64D2FF;
+    --pink: #FF375F;
+    --indigo: #5E5CE6;
+    --yellow: #FFD60A;
+    --teal: #40C8E0;
 
-  /* ====== 可滚动容器 ====== */
-  .app-container {
-    height: 100vh;
-    height: 100dvh;
-    overflow-y: auto;
-    overflow-x: hidden;
-    scrollbar-width: none;
-    position: relative;
-    -webkit-overflow-scrolling: touch;
-  }
-  .app-container::-webkit-scrollbar { display: none; }
+    /* 模糊量 */
+    --blur-lg: 40px;
+    --blur-md: 24px;
+    --blur-sm: 12px;
 
-  /* ====== 背景层 ====== */
-  .profile-bg {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 360px;
-    overflow: hidden;
-    z-index: 0;
-  }
+    /* 圆角 */
+    --r-lg: 28px;
+    --r-md: 20px;
+    --r-sm: 14px;
+    --r-xs: 10px;
+}
 
-  .profile-bg img {
+html, body {
     width: 100%;
-    height: 100%;
-    object-fit: cover;
-    filter: blur(3px) saturate(1.4);
-    transform: scale(1.15);
-  }
+    min-height: 100vh;
+    font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    color: var(--text-1);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
 
-  .profile-bg::after {
+body {
+    background: #000000;
+    position: relative;
+}
+
+/* ================================================================
+   动态背景 — 多层光球 + 噪点
+   ================================================================ */
+.bg-layer {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.30;
+    will-change: transform;
+}
+
+.orb-1 {
+    width: 520px; height: 520px;
+    background: radial-gradient(circle, #0A84FF 0%, transparent 70%);
+    top: -120px; left: -80px;
+    animation: drift1 24s ease-in-out infinite;
+}
+.orb-2 {
+    width: 420px; height: 420px;
+    background: radial-gradient(circle, #BF5AF2 0%, transparent 70%);
+    bottom: -60px; right: -40px;
+    animation: drift2 28s ease-in-out infinite;
+}
+.orb-3 {
+    width: 360px; height: 360px;
+    background: radial-gradient(circle, #30D158 0%, transparent 70%);
+    top: 35%; left: 45%;
+    animation: drift3 22s ease-in-out infinite;
+}
+.orb-4 {
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, #FF9F0A 0%, transparent 70%);
+    top: 60%; left: 10%;
+    animation: drift1 30s ease-in-out infinite reverse;
+    opacity: 0.20;
+}
+
+@keyframes drift1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(80px, -50px) scale(1.12); }
+    66% { transform: translate(-50px, 70px) scale(0.88); }
+}
+@keyframes drift2 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(-70px, -40px) scale(1.15); }
+}
+@keyframes drift3 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(-60px, 50px) scale(0.9); }
+    66% { transform: translate(50px, -60px) scale(1.1); }
+}
+
+/* 噪点纹理叠加 */
+.noise-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ================================================================
+   主容器
+   ================================================================ */
+.app {
+    position: relative;
+    z-index: 2;
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 20px 14px 48px;
+}
+
+/* ================================================================
+   玻璃面板 — 核心液态玻璃效果
+   ================================================================ */
+.glass {
+    background: var(--glass-1);
+    backdrop-filter: blur(var(--blur-lg)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(180%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--glass-shadow), var(--glass-inset);
+    position: relative;
+    overflow: hidden;
+}
+
+/* 顶部高光线 */
+.glass::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 10%; right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* 边缘光折射 */
+.glass::after {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg,
-      rgba(26,26,46,0.2) 0%,
-      rgba(26,26,46,0.5) 50%,
-      rgba(26,26,46,0.98) 92%,
-      var(--tg-bg) 100%);
-    transition: background 0.4s ease;
-  }
-
-  body.light-mode .profile-bg::after {
-    background: linear-gradient(180deg,
-      rgba(240,242,245,0.1) 0%,
-      rgba(240,242,245,0.5) 50%,
-      rgba(240,242,245,0.98) 92%,
-      var(--tg-bg) 100%);
-  }
-
-  /* 动态光斑 */
-  .blob {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(60px);
-    opacity: 0.35;
+    border-radius: var(--r-lg);
+    background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 40%, transparent 60%, rgba(255,255,255,0.02) 100%);
     pointer-events: none;
     z-index: 1;
-  }
-  .blob-1 { width: 300px; height: 300px; background: radial-gradient(circle, #6C5CE7, transparent 70%); top: 40px; right: -60px; animation: float 18s ease-in-out infinite; }
-  .blob-2 { width: 250px; height: 250px; background: radial-gradient(circle, #2AABEE, transparent 70%); top: 200px; left: -80px; animation: float 22s ease-in-out infinite -8s; }
+}
 
-  @keyframes float {
-    0%, 100% { transform: translate(0,0) scale(1); }
-    50% { transform: translate(30px, -20px) scale(1.1); }
-  }
+/* ================================================================
+   标题栏
+   ================================================================ */
+.header {
+    padding: 32px 28px 24px;
+    text-align: center;
+}
 
-  /* ====== 内容区 ====== */
-  .content {
-    position: relative;
-    z-index: 5;
-    padding-top: var(--safe-top);
-    min-height: 100%;
-  }
-
-  /* 导航栏 */
-  .nav-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    position: sticky;
-    top: 0;
-    z-index: 50;
-  }
-
-  .nav-btn {
-    width: 38px; height: 38px;
-    border-radius: 50%;
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px) saturate(1.5);
-    -webkit-backdrop-filter: blur(20px) saturate(1.5);
-    border: 1px solid var(--glass-border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: transform 0.2s cubic-bezier(0.4,0,0.2,1), background 0.2s;
-  }
-  .nav-btn:active { transform: scale(0.88); }
-  .nav-btn svg { width: 18px; height: 18px; fill: none; stroke: var(--tg-text); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-
-  .nav-title {
-    font-size: 16px;
+.header h1 {
+    font-size: 30px;
     font-weight: 700;
-    color: var(--tg-text);
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    padding: 7px 18px;
+    letter-spacing: -0.8px;
+    background: linear-gradient(135deg, #ffffff 0%, rgba(255,255,255,0.55) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.header .sub {
+    font-size: 13px;
+    color: var(--text-2);
+    margin-top: 8px;
+    letter-spacing: 0.6px;
+}
+
+.badges {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+}
+
+.badge {
+    padding: 4px 14px;
     border-radius: 20px;
-    border: 1px solid var(--glass-border);
-  }
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    border: 1px solid;
+}
 
-  /* 个人资料主体 */
-  .profile-main {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 10px 16px 120px;
-  }
+.badge-blue {
+    background: linear-gradient(135deg, rgba(10,132,255,0.15), rgba(10,132,255,0.05));
+    border-color: rgba(10,132,255,0.3);
+    color: var(--cyan);
+}
+.badge-purple {
+    background: linear-gradient(135deg, rgba(191,90,242,0.15), rgba(191,90,242,0.05));
+    border-color: rgba(191,90,242,0.3);
+    color: var(--purple);
+}
+.badge-green {
+    background: linear-gradient(135deg, rgba(48,209,88,0.15), rgba(48,209,88,0.05));
+    border-color: rgba(48,209,88,0.3);
+    color: var(--green);
+}
 
-  /* 头像 */
-  .avatar-wrap {
-    position: relative;
-    width: 120px; height: 120px;
-    margin-bottom: 16px;
-  }
+/* ================================================================
+   输入区
+   ================================================================ */
+.input-card {
+    margin: 14px;
+    padding: 22px;
+}
 
-  .avatar-ring {
-    position: absolute;
-    inset: -5px;
-    border-radius: 50%;
-    background: conic-gradient(from 0deg, #2AABEE, #6C5CE7, #E84393, #00D161, #2AABEE);
-    animation: spin 8s linear infinite;
-    opacity: 0.85;
-    filter: blur(1px);
-  }
-  .avatar-ring::after {
-    content: '';
-    position: absolute;
-    inset: 3px;
-    border-radius: 50%;
-    background: var(--tg-bg);
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .avatar {
-    position: relative;
-    width: 120px; height: 120px;
-    border-radius: 50%;
-    overflow: hidden;
-    border: 3px solid rgba(255,255,255,0.2);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-    z-index: 1;
-  }
-  .avatar img { width: 100%; height: 100%; object-fit: cover; }
-
-  .online-dot {
-    position: absolute;
-    bottom: 6px; right: 6px;
-    width: 20px; height: 20px;
-    border-radius: 50%;
-    background: var(--tg-green);
-    border: 3px solid var(--tg-bg);
-    z-index: 2;
-    box-shadow: 0 0 12px rgba(0,209,97,0.6);
-  }
-
-  /* 用户名 */
-  .user-name {
-    font-size: 26px;
-    font-weight: 800;
-    color: var(--tg-text);
-    margin-bottom: 4px;
-    letter-spacing: -0.5px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .verified-badge { width: 20px; height: 20px; }
-
-  .user-status {
+.sec-title {
     font-size: 14px;
-    color: var(--tg-hint);
-    margin-bottom: 22px;
+    font-weight: 600;
+    color: var(--text-2);
+    margin-bottom: 14px;
     display: flex;
     align-items: center;
-    gap: 6px;
-  }
-  .user-status svg { width: 13px; height: 13px; fill: var(--tg-hint); }
+    gap: 8px;
+    position: relative;
+    z-index: 2;
+}
 
-  /* 圆形操作按钮 */
-  .action-buttons {
+.sec-title::before {
+    content: '';
+    width: 3px; height: 16px;
+    background: linear-gradient(180deg, var(--blue), var(--purple));
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+textarea#input {
+    width: 100%;
+    min-height: 90px;
+    padding: 14px 16px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: var(--r-md);
+    color: var(--text-1);
+    font-size: 14px;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
+    backdrop-filter: blur(8px);
+    position: relative;
+    z-index: 2;
+}
+
+textarea#input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.12), inset 0 1px 2px rgba(0,0,0,0.2);
+    background: rgba(0, 0, 0, 0.45);
+}
+
+textarea#input::placeholder {
+    color: var(--text-4);
+    line-height: 1.5;
+}
+
+/* 按钮组 */
+.btn-row {
     display: flex;
     gap: 10px;
-    width: 100%;
-    margin-bottom: 22px;
-  }
+    margin-top: 16px;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 2;
+}
 
-  .action-btn {
+.btn {
     flex: 1;
-    height: 60px;
-    border-radius: 30px;
-    background: var(--glass-bg);
-    backdrop-filter: blur(30px) saturate(1.5);
-    -webkit-backdrop-filter: blur(30px) saturate(1.5);
-    border: 1px solid var(--glass-border);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
+    min-width: 90px;
+    padding: 13px 20px;
+    border: none;
+    border-radius: var(--r-sm);
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
-    transition: transform 0.2s cubic-bezier(0.4,0,0.2,1), background 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
-  }
-  .action-btn::before {
+    font-family: inherit;
+    letter-spacing: 0.3px;
+}
+
+/* 主按钮 — 液态玻璃蓝色 */
+.btn-go {
+    background: linear-gradient(135deg, #0A84FF 0%, #0066CC 100%);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(10, 132, 255, 0.35), inset 0 1px 1px rgba(255,255,255,0.25);
+}
+.btn-go::before {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 50%;
-    background: linear-gradient(180deg, rgba(255,255,255,0.12), transparent);
-    border-radius: 30px 30px 0 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.15), transparent);
+    border-radius: var(--r-sm) var(--r-sm) 0 0;
     pointer-events: none;
-  }
-  .action-btn:active { transform: scale(0.93); }
-  .action-btn svg { width: 22px; height: 22px; fill: none; stroke: var(--tg-text); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .action-btn .btn-label { font-size: 10px; color: var(--tg-hint); font-weight: 600; }
+}
+.btn-go:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(10, 132, 255, 0.45), inset 0 1px 1px rgba(255,255,255,0.3);
+}
+.btn-go:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(10, 132, 255, 0.3);
+}
 
-  /* 信息卡片 */
-  .info-cards {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 18px;
-  }
+/* 次按钮 — 玻璃质感 */
+.btn-glass {
+    background: var(--glass-3);
+    color: var(--text-1);
+    border: 1px solid var(--glass-border-bright);
+    backdrop-filter: blur(var(--blur-sm));
+    -webkit-backdrop-filter: blur(var(--blur-sm));
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.12);
+}
+.btn-glass:hover {
+    background: var(--glass-hover);
+    transform: translateY(-1px);
+}
+.btn-glass:active {
+    transform: translateY(0);
+}
 
-  .info-card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(30px) saturate(1.5);
-    -webkit-backdrop-filter: blur(30px) saturate(1.5);
-    border: 1px solid var(--glass-border);
-    border-radius: 20px;
-    padding: 14px 16px;
-    display: flex;
-    align-items: center;
+/* ================================================================
+   结果展示区
+   ================================================================ */
+.result-card {
+    margin: 14px;
+    padding: 26px 22px;
+    display: none;
+    animation: reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.result-card.show { display: block; }
+
+@keyframes reveal {
+    from { opacity: 0; transform: translateY(24px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 预测主卡片 */
+.predict-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 14px;
-    cursor: pointer;
-    transition: transform 0.2s, background 0.2s;
+    margin-bottom: 20px;
+    position: relative;
+    z-index: 2;
+}
+
+.predict-box {
+    padding: 22px 18px;
+    border-radius: var(--r-md);
+    text-align: center;
     position: relative;
     overflow: hidden;
-  }
-  .info-card::before {
+}
+
+.predict-box.kill {
+    background: linear-gradient(135deg, rgba(255, 69, 58, 0.14) 0%, rgba(255, 69, 58, 0.04) 100%);
+    border: 1px solid rgba(255, 69, 58, 0.25);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.08);
+}
+.predict-box.kill::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 20%; right: 20%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,69,58,0.4), transparent);
+}
+
+.predict-box.rec {
+    background: linear-gradient(135deg, rgba(48, 209, 88, 0.14) 0%, rgba(48, 209, 88, 0.04) 100%);
+    border: 1px solid rgba(48, 209, 88, 0.25);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.08);
+}
+.predict-box.rec::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 20%; right: 20%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(48,209,88,0.4), transparent);
+}
+
+.p-label {
+    font-size: 11px;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+.p-val {
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -1.2px;
+    line-height: 1.1;
+}
+
+.predict-box.kill .p-val { color: var(--red); }
+.predict-box.rec .p-val { color: var(--green); }
+
+.p-sub {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 8px;
+}
+
+/* 分数芯片 */
+.score-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin: 16px 0;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 2;
+}
+
+.chip {
+    padding: 9px 16px;
+    border-radius: var(--r-xs);
+    font-size: 14px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.chip-rec {
+    background: rgba(48, 209, 88, 0.10);
+    color: var(--green);
+    border: 1px solid rgba(48, 209, 88, 0.20);
+}
+.chip-kill {
+    background: rgba(255, 69, 58, 0.10);
+    color: var(--red);
+    border: 1px solid rgba(255, 69, 58, 0.20);
+}
+.chip-rem {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-2);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* 置信度仪表 */
+.conf-section {
+    margin: 18px 0;
+    position: relative;
+    z-index: 2;
+}
+
+.conf-bar-bg {
+    height: 10px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 5px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.conf-bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+    background: linear-gradient(90deg, var(--red) 0%, var(--orange) 40%, var(--green) 100%);
+    box-shadow: 0 0 12px rgba(48, 209, 88, 0.3);
+    position: relative;
+}
+.conf-bar-fill::after {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.25), transparent);
+    border-radius: 5px 5px 0 0;
+}
+
+.conf-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text-2);
+}
+
+.conf-val {
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--text-1);
+    font-variant-numeric: tabular-nums;
+}
+
+/* 分隔线 */
+.divider {
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-  }
-  .info-card:active { transform: scale(0.97); }
-
-  .info-icon {
-    width: 38px; height: 38px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-  .info-icon.blue { background: rgba(42,171,238,0.15); }
-  .info-icon.purple { background: rgba(108,92,231,0.15); }
-  .info-icon.pink { background: rgba(232,67,147,0.15); }
-  .info-icon.green { background: rgba(0,209,97,0.15); }
-  .info-icon svg { width: 18px; height: 18px; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .info-icon.blue svg { stroke: #5AC8FA; }
-  .info-icon.purple svg { stroke: #A29BFE; }
-  .info-icon.pink svg { stroke: #FD79A8; }
-  .info-icon.green svg { stroke: #00D161; }
-
-  .info-content { flex: 1; min-width: 0; }
-  .info-label { font-size: 11px; color: var(--tg-hint); font-weight: 600; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .info-value { font-size: 15px; color: var(--tg-text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-  .info-action {
-    width: 28px; height: 28px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.08);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-  .info-action svg { width: 14px; height: 14px; stroke: var(--tg-hint); fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-
-  /* 统计栏 */
-  .stats-row {
-    display: flex;
-    gap: 8px;
-    width: 100%;
-    margin-bottom: 18px;
-  }
-
-  .stat-card {
-    flex: 1;
-    background: var(--glass-bg);
-    backdrop-filter: blur(30px) saturate(1.5);
-    -webkit-backdrop-filter: blur(30px) saturate(1.5);
-    border: 1px solid var(--glass-border);
-    border-radius: 18px;
-    padding: 14px;
-    text-align: center;
-    cursor: pointer;
-    transition: transform 0.2s;
-  }
-  .stat-card:active { transform: scale(0.95); }
-  .stat-value { font-size: 22px; font-weight: 800; color: var(--tg-text); letter-spacing: -0.5px; }
-  .stat-label { font-size: 11px; color: var(--tg-hint); font-weight: 600; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
-
-  /* 整合切换栏 */
-  .tab-bar-container { width: 100%; margin-bottom: 14px; }
-
-  .tab-bar {
-    background: var(--glass-bg);
-    backdrop-filter: blur(30px) saturate(1.5);
-    -webkit-backdrop-filter: blur(30px) saturate(1.5);
-    border: 1px solid var(--glass-border);
-    border-radius: 22px;
-    padding: 4px;
-    display: flex;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    margin: 18px 0;
     position: relative;
-    overflow: hidden;
-  }
+    z-index: 2;
+}
 
-  .tab-indicator {
-    position: absolute;
-    top: 4px;
-    height: calc(100% - 8px);
-    background: rgba(42,171,238,0.25);
-    border: 1px solid rgba(42,171,238,0.15);
-    border-radius: 18px;
-    transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
-    z-index: 0;
-    box-shadow: 0 2px 12px rgba(42,171,238,0.2);
-  }
-
-  .tab-item {
-    flex: 1;
-    padding: 10px 4px;
+/* 星轨模式检测 */
+.regime-row {
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
     align-items: center;
-    gap: 3px;
-    cursor: pointer;
+    margin-bottom: 14px;
     position: relative;
-    z-index: 1;
-    transition: color 0.3s;
-    border: none;
-    background: none;
-  }
-  .tab-item svg { width: 18px; height: 18px; fill: none; stroke: var(--tg-hint); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: stroke 0.3s; }
-  .tab-item span { font-size: 10px; color: var(--tg-hint); font-weight: 700; transition: color 0.3s; }
-  .tab-item.active svg { stroke: #5AC8FA; }
-  .tab-item.active span { color: var(--tg-text); }
+    z-index: 2;
+}
 
-  /* 内容网格 */
-  .tab-content { width: 100%; }
-  .tab-pane { display: none; }
-  .tab-pane.active { display: block; animation: fadeIn 0.3s ease; }
-
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
-  .content-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
-  }
-
-  .content-item {
-    aspect-ratio: 1;
-    border-radius: 14px;
-    overflow: hidden;
-    position: relative;
-    cursor: pointer;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    transition: transform 0.2s;
-  }
-  .content-item:active { transform: scale(0.94); }
-  .content-item img { width: 100%; height: 100%; object-fit: cover; }
-
-  .content-item .play-overlay {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(10px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .content-item .duration {
-    position: absolute;
-    bottom: 6px; right: 6px;
-    background: rgba(0,0,0,0.6);
-    color: #fff;
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 6px;
-    font-weight: 600;
-  }
-
-  /* Gifts */
-  .gifts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .gift-card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
-    border-radius: 18px;
-    padding: 18px;
-    display: flex;
-    flex-direction: column;
+.regime-badge {
+    display: inline-flex;
     align-items: center;
     gap: 6px;
-    cursor: pointer;
-    transition: transform 0.2s;
-  }
-  .gift-card:active { transform: scale(0.95); }
-  .gift-emoji { font-size: 42px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3)); }
-  .gift-name { font-size: 13px; color: var(--tg-text); font-weight: 700; }
-  .gift-count { font-size: 10px; color: var(--tg-hint); }
-  .gift-price { font-size: 12px; color: #5AC8FA; font-weight: 800; margin-top: 2px; }
-
-  /* Media */
-  .media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
-
-  /* Files */
-  .file-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px;
-    border-radius: 16px;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    margin-bottom: 8px;
-    cursor: pointer;
-    transition: transform 0.2s;
-  }
-  .file-item:active { transform: scale(0.97); }
-  .file-icon {
-    width: 46px; height: 46px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 800;
-    color: #fff;
-    flex-shrink: 0;
-  }
-  .file-info { flex: 1; min-width: 0; }
-  .file-name { font-size: 14px; color: var(--tg-text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .file-size { font-size: 12px; color: var(--tg-hint); margin-top: 2px; }
-  .file-download { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .file-download svg { width: 16px; height: 16px; stroke: var(--tg-hint); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-  /* Music */
-  .music-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px;
-    border-radius: 16px;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    margin-bottom: 8px;
-    cursor: pointer;
-    transition: transform 0.2s;
-  }
-  .music-item:active { transform: scale(0.97); }
-  .music-cover { width: 50px; height: 50px; border-radius: 12px; overflow: hidden; flex-shrink: 0; }
-  .music-cover img { width: 100%; height: 100%; object-fit: cover; }
-  .music-info { flex: 1; min-width: 0; }
-  .music-title { font-size: 14px; color: var(--tg-text); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .music-artist { font-size: 12px; color: var(--tg-hint); margin-top: 2px; }
-  .music-duration { font-size: 12px; color: var(--tg-hint); }
-  .music-play { width: 36px; height: 36px; border-radius: 50%; background: rgba(42,171,238,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .music-play svg { width: 14px; height: 14px; fill: #5AC8FA; }
-
-  /* 底部安全区 */
-  .bottom-spacer { height: calc(80px + var(--safe-bottom)); }
-
-  /* Toast */
-  .toast {
-    position: fixed;
-    bottom: 100px;
-    left: 50%;
-    transform: translateX(-50%) translateY(20px);
-    background: rgba(0,0,0,0.85);
-    backdrop-filter: blur(20px);
-    color: #fff;
-    padding: 12px 24px;
+    padding: 7px 16px;
     border-radius: 20px;
-    font-size: 14px;
-    font-weight: 600;
-    z-index: 1000;
-    opacity: 0;
-    pointer-events: none;
-    transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
-    white-space: nowrap;
-  }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-  /* 浏览器预览提示 */
-  .preview-banner {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    background: linear-gradient(135deg, #2AABEE, #6C5CE7);
-    color: #fff;
-    text-align: center;
-    padding: 8px 16px;
     font-size: 12px;
     font-weight: 600;
-    z-index: 9999;
-    display: none;
-  }
-  .preview-banner.show { display: block; }
+    border: 1px solid;
+}
 
-  .app-container.has-banner { padding-top: 32px; }
+.r-chaos { background: rgba(100,210,255,0.10); color: var(--cyan); border-color: rgba(100,210,255,0.25); }
+.r-orbit { background: rgba(10,132,255,0.10); color: var(--blue); border-color: rgba(10,132,255,0.25); }
+.r-gravity { background: rgba(191,90,242,0.10); color: var(--purple); border-color: rgba(191,90,242,0.25); }
+.r-pulsar { background: rgba(255,159,10,0.10); color: var(--orange); border-color: rgba(255,159,10,0.25); }
+.r-galaxy { background: rgba(94,92,230,0.10); color: var(--indigo); border-color: rgba(94,92,230,0.25); }
+
+.regime-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(1.35); }
+}
+
+/* 信息行 */
+.info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    position: relative;
+    z-index: 2;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.03);
+    border-radius: var(--r-xs);
+    border: 1px solid rgba(255,255,255,0.04);
+}
+
+.info-k { font-size: 12px; color: var(--text-2); }
+.info-v {
+    font-weight: 600;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-1);
+}
+
+/* 因子权重可视化 */
+.factors-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+    position: relative;
+    z-index: 2;
+}
+
+.factor-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    background: rgba(255,255,255,0.03);
+    border-radius: var(--r-xs);
+    border: 1px solid rgba(255,255,255,0.05);
+    transition: background 0.3s;
+}
+.factor-item:hover { background: rgba(255,255,255,0.06); }
+
+.f-name {
+    font-size: 12px;
+    color: var(--text-2);
+    min-width: 56px;
+    flex-shrink: 0;
+}
+
+.f-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 1px rgba(0,0,0,0.2);
+}
+
+.f-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 0 6px currentColor;
+}
+
+.f-pct {
+    font-size: 11px;
+    color: var(--text-3);
+    min-width: 38px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+.f-hr {
+    font-size: 10px;
+    color: var(--text-4);
+    min-width: 30px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+/* 策略表现 */
+.strat-list {
+    margin-top: 12px;
+    position: relative;
+    z-index: 2;
+}
+
+.strat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    border-radius: var(--r-xs);
+    margin-bottom: 6px;
+    font-size: 13px;
+    transition: all 0.3s;
+    border: 1px solid transparent;
+}
+
+.strat-row:hover {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.06);
+}
+.strat-row.best {
+    background: rgba(48, 209, 88, 0.08);
+    border-color: rgba(48, 209, 88, 0.15);
+}
+
+.strat-name { color: var(--text-2); }
+.strat-rate {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.strat-row.best .strat-rate { color: var(--green); }
+
+.strat-bar {
+    width: 60px;
+    height: 4px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-left: 8px;
+}
+.strat-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.6s ease;
+}
+
+/* 星系投票可视化 */
+.ensemble-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+    position: relative;
+    z-index: 2;
+}
+
+.ens-item {
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.03);
+    border-radius: var(--r-xs);
+    border: 1px solid rgba(255,255,255,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ens-name {
+    font-size: 12px;
+    color: var(--text-2);
+}
+
+.ens-vote {
+    font-size: 13px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 8px;
+}
+
+.ens-vote.kill { background: rgba(255,69,58,0.15); color: var(--red); }
+.ens-vote.keep { background: rgba(48,209,88,0.10); color: var(--green); }
+
+/* 加载动画 */
+.loader {
+    display: none;
+    text-align: center;
+    padding: 40px;
+    position: relative;
+    z-index: 2;
+}
+.loader.show { display: block; }
+
+.spinner {
+    width: 40px; height: 40px;
+    border: 3px solid rgba(255,255,255,0.1);
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loader-text {
+    font-size: 13px;
+    color: var(--text-2);
+}
+
+/* ================================================================
+   响应式
+   ================================================================ */
+@media (max-width: 600px) {
+    .app { padding: 12px 8px 32px; }
+    .header h1 { font-size: 24px; }
+    .header { padding: 24px 18px 18px; }
+    .predict-grid { grid-template-columns: 1fr; }
+    .factors-grid { grid-template-columns: 1fr; }
+    .info-grid { grid-template-columns: 1fr; }
+    .ensemble-grid { grid-template-columns: 1fr; }
+    .btn { min-width: 70px; padding: 11px 14px; font-size: 13px; }
+    .p-val { font-size: 28px; }
+    .input-card, .result-card { margin: 10px; padding: 18px; }
+}
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.12);
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.20); }
 </style>
 </head>
 <body>
 
-<!-- 浏览器预览提示 -->
-<div class="preview-banner" id="previewBanner">
-  预览模式 · 在 Telegram 中打开以体验完整功能
+<!-- 动态背景层 -->
+<div class="bg-layer">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="orb orb-4"></div>
 </div>
+<div class="noise-overlay"></div>
 
-<div class="app-container" id="appContainer">
-  <!-- 背景 -->
-  <div class="profile-bg">
-    <img id="bgImg" src="https://picsum.photos/seed/tg-glass-bg/600/800" alt="">
-  </div>
-  <div class="blob blob-1"></div>
-  <div class="blob blob-2"></div>
+<div class="app">
 
-  <div class="content">
-    <!-- 导航栏 -->
-    <div class="nav-bar">
-      <div class="nav-btn" id="backBtn">
-        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-      </div>
-      <div class="nav-title" id="navTitle">Helena ✨</div>
-      <div class="nav-btn" id="moreBtn">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-      </div>
+    <!-- 标题 -->
+    <div class="glass header">
+        <h1>Orbit-星轨引擎</h1>
+        <div class="sub">超高胜率星轨集成引擎 · Orbit Stellar Ensemble Engine</div>
+        <div class="badges">
+            <span class="badge badge-blue">12星轨因子</span>
+            <span class="badge badge-purple">星系投票</span>
+            <span class="badge badge-green">自适应策略</span>
+        </div>
     </div>
 
-    <!-- 主体 -->
-    <div class="profile-main">
-      <!-- 头像 -->
-      <div class="avatar-wrap">
-        <div class="avatar-ring"></div>
-        <div class="avatar">
-          <img id="avatarImg" src="https://picsum.photos/seed/helena-tg/300/300" alt="">
+    <!-- 输入区 -->
+    <div class="glass input-card">
+        <div class="sec-title">历史数据输入</div>
+        <textarea id="input" placeholder="输入历史开奖号码，每期3个数字用空格或逗号分隔，每期一行&#10;例如:&#10;1 2 5&#10;3 7 8&#10;9 0 4&#10;...（至少15期，推荐30+期）"></textarea>
+        <div class="btn-row">
+            <button class="btn btn-go" onclick="runPredict()">开始预测</button>
+            <button class="btn btn-glass" onclick="loadDemo()">载入示例</button>
+            <button class="btn btn-glass" onclick="clearAll()">清空</button>
         </div>
-        <div class="online-dot"></div>
-      </div>
-
-      <!-- 用户名 -->
-      <div class="user-name">
-        <span id="userName">Helena ✨</span>
-        <svg class="verified-badge" viewBox="0 0 24 24" fill="#2AABEE"><path d="M12 2l2.4 2.4 3.4-.2.2 3.4L20.4 10 18 12l2.4 2.4-3.4.2-.2 3.4-3.4-.2L12 22l-2.4-2.4-3.4.2-.2-3.4L3.6 14 6 12 3.6 9.6l3.4-.2.2-3.4 3.4.2L12 2z"/><path d="M9.5 12l1.8 1.8 3.5-3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-      <div class="user-status">
-        <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-        <span id="userStatus">在线 · Put A Spell On You</span>
-      </div>
-
-      <!-- 操作按钮 -->
-      <div class="action-buttons">
-        <div class="action-btn" data-action="call">
-          <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-          <span class="btn-label">通话</span>
-        </div>
-        <div class="action-btn" data-action="mute">
-          <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <span class="btn-label">静音</span>
-        </div>
-        <div class="action-btn" data-action="search">
-          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <span class="btn-label">搜索</span>
-        </div>
-        <div class="action-btn" data-action="share">
-          <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-          <span class="btn-label">分享</span>
-        </div>
-      </div>
-
-      <!-- 统计 -->
-      <div class="stats-row">
-        <div class="stat-card" data-stat="posts">
-          <div class="stat-value">248</div>
-          <div class="stat-label">帖子</div>
-        </div>
-        <div class="stat-card" data-stat="friends">
-          <div class="stat-value">1.2K</div>
-          <div class="stat-label">好友</div>
-        </div>
-        <div class="stat-card" data-stat="gifts">
-          <div class="stat-value">86</div>
-          <div class="stat-label">礼物</div>
-        </div>
-      </div>
-
-      <!-- 信息卡片 -->
-      <div class="info-cards">
-        <div class="info-card" data-info="phone">
-          <div class="info-icon blue">
-            <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-          </div>
-          <div class="info-content">
-            <div class="info-label">手机</div>
-            <div class="info-value">+888 1234 5678</div>
-          </div>
-          <div class="info-action"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
-        </div>
-        <div class="info-card" data-info="location">
-          <div class="info-icon purple">
-            <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          </div>
-          <div class="info-content">
-            <div class="info-label">位置</div>
-            <div class="info-value">上海，中国</div>
-          </div>
-          <div class="info-action"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
-        </div>
-        <div class="info-card" data-info="bio">
-          <div class="info-icon pink">
-            <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-          </div>
-          <div class="info-content">
-            <div class="info-label">简介</div>
-            <div class="info-value">Designer · Traveler ✨</div>
-          </div>
-          <div class="info-action"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
-        </div>
-        <div class="info-card" data-info="music">
-          <div class="info-icon green">
-            <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-          </div>
-          <div class="info-content">
-            <div class="info-label">正在播放</div>
-            <div class="info-value">Put A Spell On You</div>
-          </div>
-          <div class="info-action"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
-        </div>
-      </div>
-
-      <!-- 整合切换栏 -->
-      <div class="tab-bar-container">
-        <div class="tab-bar" id="tabBar">
-          <div class="tab-indicator" id="tabIndicator"></div>
-          <button class="tab-item active" data-tab="posts">
-            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-            <span>帖子</span>
-          </button>
-          <button class="tab-item" data-tab="gifts">
-            <svg viewBox="0 0 24 24"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
-            <span>礼物</span>
-          </button>
-          <button class="tab-item" data-tab="media">
-            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            <span>媒体</span>
-          </button>
-          <button class="tab-item" data-tab="files">
-            <svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-            <span>文件</span>
-          </button>
-          <button class="tab-item" data-tab="music">
-            <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-            <span>音乐</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- 内容区 -->
-      <div class="tab-content">
-        <!-- Posts -->
-        <div class="tab-pane active" id="pane-posts">
-          <div class="content-grid">
-            <div class="content-item"><img src="https://picsum.photos/seed/p1/200/200" alt=""></div>
-            <div class="content-item"><img src="https://picsum.photos/seed/p2/200/200" alt=""><div class="play-overlay"><svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><polygon points="5 3 19 12 5 21 5 3"/></svg></div><div class="duration">0:42</div></div>
-            <div class="content-item"><img src="https://picsum.photos/seed/p3/200/200" alt=""></div>
-            <div class="content-item"><img src="https://picsum.photos/seed/p4/200/200" alt=""></div>
-            <div class="content-item"><img src="https://picsum.photos/seed/p5/200/200" alt=""><div class="play-overlay"><svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><polygon points="5 3 19 12 5 21 5 3"/></svg></div><div class="duration">1:23</div></div>
-            <div class="content-item"><img src="https://picsum.photos/seed/p6/200/200" alt=""></div>
-            <div class="content-item"><img src="https://picsum.photos/seed/p7/200/200" alt=""></div>
-            <div class="content-item"><img src="https://picsum.photos/seed/p8/200/200" alt=""><div class="play-overlay"><svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><polygon points="5 3 19 12 5 21 5 3"/></svg></div><div class="duration">0:15</div></div>
-            <div class="content-item"><img src="https://picsum.photos/seed/p9/200/200" alt=""></div>
-          </div>
-        </div>
-
-        <!-- Gifts -->
-        <div class="tab-pane" id="pane-gifts">
-          <div class="gifts-grid">
-            <div class="gift-card"><div class="gift-emoji">🌹</div><div class="gift-name">玫瑰</div><div class="gift-count">收到 128 次</div><div class="gift-price">50 ⭐</div></div>
-            <div class="gift-card"><div class="gift-emoji">🎁</div><div class="gift-name">礼物盒</div><div class="gift-count">收到 56 次</div><div class="gift-price">100 ⭐</div></div>
-            <div class="gift-card"><div class="gift-emoji">🎂</div><div class="gift-name">生日蛋糕</div><div class="gift-count">收到 32 次</div><div class="gift-price">200 ⭐</div></div>
-            <div class="gift-card"><div class="gift-emoji">💎</div><div class="gift-name">钻石</div><div class="gift-count">收到 15 次</div><div class="gift-price">500 ⭐</div></div>
-            <div class="gift-card"><div class="gift-emoji">🏆</div><div class="gift-name">奖杯</div><div class="gift-count">收到 8 次</div><div class="gift-price">1000 ⭐</div></div>
-            <div class="gift-card"><div class="gift-emoji">🚀</div><div class="gift-name">火箭</div><div class="gift-count">收到 3 次</div><div class="gift-price">2000 ⭐</div></div>
-          </div>
-        </div>
-
-        <!-- Media -->
-        <div class="tab-pane" id="pane-media">
-          <div class="media-grid">
-            <div class="content-item"><img src="https://picsum.photos/seed/m1/200/200" alt=""></div>
-            <div class="content-item"><img src="https://picsum.photos/seed/m2/200/200" alt=""><div class="play-overlay"><svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><polygon points="5 3 19 12 5 21 5 3"/></svg></div><div class="duration">2:30</div></div>
-            <div class="content-item"><img src="https://picsum.photos/seed/m3/200/200" alt=""></div>
-            <div class="content-item"><img src="https://picsum.photos/seed/m4/200/200" alt=""></div>
-            <div class="content-item"><img src="https://picsum.photos/seed/m5/200/200" alt=""></div>
-            <div class="content-item"><img src="https://picsum.photos/seed/m6/200/200" alt=""><div class="play-overlay"><svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><polygon points="5 3 19 12 5 21 5 3"/></svg></div><div class="duration">0:58</div></div>
-          </div>
-        </div>
-
-        <!-- Files -->
-        <div class="tab-pane" id="pane-files">
-          <div class="file-item">
-            <div class="file-icon" style="background:linear-gradient(135deg,#2AABEE,#229ED9);">PDF</div>
-            <div class="file-info"><div class="file-name">设计方案.pdf</div><div class="file-size">2.4 MB</div></div>
-            <div class="file-download"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
-          </div>
-          <div class="file-item">
-            <div class="file-icon" style="background:linear-gradient(135deg,#00D161,#00A84E);">DOC</div>
-            <div class="file-info"><div class="file-name">需求文档.docx</div><div class="file-size">845 KB</div></div>
-            <div class="file-download"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
-          </div>
-          <div class="file-item">
-            <div class="file-icon" style="background:linear-gradient(135deg,#E84393,#C4185C);">IMG</div>
-            <div class="file-info"><div class="file-name">截图_2026.png</div><div class="file-size">1.2 MB</div></div>
-            <div class="file-download"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
-          </div>
-          <div class="file-item">
-            <div class="file-icon" style="background:linear-gradient(135deg,#6C5CE7,#5849D4);">ZIP</div>
-            <div class="file-info"><div class="file-name">项目文件.zip</div><div class="file-size">15.6 MB</div></div>
-            <div class="file-download"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
-          </div>
-        </div>
-
-        <!-- Music -->
-        <div class="tab-pane" id="pane-music">
-          <div class="music-item">
-            <div class="music-cover"><img src="https://picsum.photos/seed/c1/100/100" alt=""></div>
-            <div class="music-info"><div class="music-title">Put A Spell On You</div><div class="music-artist">You & Me</div></div>
-            <div class="music-duration">3:42</div>
-            <div class="music-play"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
-          </div>
-          <div class="music-item">
-            <div class="music-cover"><img src="https://picsum.photos/seed/c2/100/100" alt=""></div>
-            <div class="music-info"><div class="music-title">Midnight City Lights</div><div class="music-artist">Helena</div></div>
-            <div class="music-duration">4:15</div>
-            <div class="music-play"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
-          </div>
-          <div class="music-item">
-            <div class="music-cover"><img src="https://picsum.photos/seed/c3/100/100" alt=""></div>
-            <div class="music-info"><div class="music-title">Ocean Waves</div><div class="music-artist">Calm Collective</div></div>
-            <div class="music-duration">5:28</div>
-            <div class="music-play"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
-          </div>
-          <div class="music-item">
-            <div class="music-cover"><img src="https://picsum.photos/seed/c4/100/100" alt=""></div>
-            <div class="music-info"><div class="music-title">Neon Dreams</div><div class="music-artist">Synthwave</div></div>
-            <div class="music-duration">3:56</div>
-            <div class="music-play"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="bottom-spacer"></div>
     </div>
-  </div>
-</div>
 
-<!-- Toast -->
-<div class="toast" id="toast"></div>
+    <!-- 加载中 -->
+    <div class="glass result-card" id="loaderCard" style="display:none;">
+        <div class="loader show">
+            <div class="spinner"></div>
+            <div class="loader-text">正在运行星轨集成引擎...</div>
+        </div>
+    </div>
+
+    <!-- 结果区 -->
+    <div class="glass result-card" id="resultCard">
+        <!-- 预测主卡片 -->
+        <div class="predict-grid">
+            <div class="predict-box kill">
+                <div class="p-label">杀组</div>
+                <div class="p-val" id="killGroup">--</div>
+                <div class="p-sub" id="killSub">置信度 --</div>
+            </div>
+            <div class="predict-box rec">
+                <div class="p-label">推荐组合</div>
+                <div class="p-val" id="recCombos">--</div>
+                <div class="p-sub" id="recSub">主推 + 次推</div>
+            </div>
+        </div>
+
+        <!-- 分数 -->
+        <div class="score-row" id="scoreRow"></div>
+
+        <!-- 置信度 -->
+        <div class="conf-section">
+            <div class="conf-bar-bg">
+                <div class="conf-bar-fill" id="confBar" style="width:0%"></div>
+            </div>
+            <div class="conf-label">
+                <span>预测置信度</span>
+                <span class="conf-val" id="confVal">0%</span>
+            </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- 星轨模式检测 + 基本信息 -->
+        <div class="regime-row">
+            <div class="sec-title" style="margin-bottom:0;">星轨模式检测</div>
+            <div id="regimeBadge"></div>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-item"><span class="info-k">数据期数</span><span class="info-v" id="dataCount">--</span></div>
+            <div class="info-item"><span class="info-k">和值预测</span><span class="info-v" id="sumPred">--</span></div>
+            <div class="info-item"><span class="info-k">组号预测</span><span class="info-v" id="groupNum">--</span></div>
+            <div class="info-item"><span class="info-k">最优星轨</span><span class="info-v" id="bestStrat">--</span></div>
+            <div class="info-item"><span class="info-k">星轨回测胜率</span><span class="info-v" id="btRate">--</span></div>
+            <div class="info-item"><span class="info-k">星系一致性</span><span class="info-v" id="consensus">--</span></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- 星系投票 -->
+        <div class="sec-title">星系策略投票</div>
+        <div class="ensemble-grid" id="ensembleGrid"></div>
+
+        <div class="divider"></div>
+
+        <!-- 星轨因子权重 -->
+        <div class="sec-title">星轨因子权重分布</div>
+        <div class="factors-grid" id="factorsGrid"></div>
+
+        <div class="divider"></div>
+
+        <!-- 星轨策略表现 -->
+        <div class="sec-title">星轨策略近期表现</div>
+        <div class="strat-list" id="stratList"></div>
+    </div>
+
+</div>
 
 <script>
-  // ====== Telegram WebApp 初始化 ======
-  const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-  const isTelegram = !!tg;
+// ============================================================
+// Orbit-星轨引擎 — 超高胜率星轨集成引擎
+// 12星轨因子 · 星轨元学习 · 自适应策略选择 · 置信度门控
+// ============================================================
 
-  if (isTelegram) {
-    tg.ready();
-    tg.expand();
-    // 设置背景色
-    if (tg.themeParams && tg.themeParams.bg_color) {
-      document.documentElement.style.setProperty('--tg-bg', tg.themeParams.bg_color);
-    }
-    if (tg.themeParams && tg.themeParams.text_color) {
-      document.documentElement.style.setProperty('--tg-text', tg.themeParams.text_color);
-    }
-    if (tg.themeParams && tg.themeParams.hint_color) {
-      document.documentElement.style.setProperty('--tg-hint', tg.themeParams.hint_color);
-    }
-    if (tg.themeParams && tg.themeParams.link_color) {
-      document.documentElement.style.setProperty('--tg-link', tg.themeParams.link_color);
-    }
-    if (tg.themeParams && tg.themeParams.button_color) {
-      document.documentElement.style.setProperty('--tg-button', tg.themeParams.button_color);
-    }
-    // 设置 header 颜色
-    if (tg.setHeaderColor) {
-      try { tg.setHeaderColor('secondary_bg_color'); } catch(e) {}
-    }
-    // 启用垂直滚动
-    if (tg.enableVerticalSwipes) tg.enableVerticalSwipes();
-  } else {
-    // 浏览器预览模式
-    document.getElementById('previewBanner').classList.add('show');
-    document.getElementById('appContainer').classList.add('has-banner');
-  }
+const COMBOS = ['小单', '小双', '大单', '大双'];
 
-  // ====== 触觉反馈 ======
-  function haptic(type) {
-    if (!isTelegram || !tg.HapticFeedback) return;
-    if (type === 'light') tg.HapticFeedback.impactOccurred('light');
-    else if (type === 'medium') tg.HapticFeedback.impactOccurred('medium');
-    else if (type === 'heavy') tg.HapticFeedback.impactOccurred('heavy');
-    else if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
-    else if (type === 'error') tg.HapticFeedback.notificationOccurred('error');
-    else if (type === 'warning') tg.HapticFeedback.notificationOccurred('warning');
-    else if (type === 'select') tg.HapticFeedback.selectionChanged();
-  }
+function comboOf(nums) {
+    const total = nums.reduce((a, b) => a + b, 0);
+    const size = total <= 13 ? '小' : '大';
+    const parity = total % 2 === 1 ? '单' : '双';
+    return size + parity;
+}
 
-  // ====== Toast 提示 ======
-  const toast = document.getElementById('toast');
-  let toastTimer = null;
-  function showToast(msg) {
-    toast.textContent = msg;
-    toast.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
-  }
-
-  // ====== 返回按钮 ======
-  const backBtn = document.getElementById('backBtn');
-  if (isTelegram && tg.BackButton) {
-    tg.BackButton.show();
-    tg.BackButton.onClick(() => {
-      haptic('light');
-      tg.close();
-    });
-  }
-  backBtn.addEventListener('click', () => {
-    haptic('light');
-    if (isTelegram && tg.BackButton) {
-      tg.BackButton.hide();
-      tg.close();
-    } else {
-      showToast('返回（在 Telegram 中可用）');
-    }
-  });
-
-  // ====== 更多按钮 - Popup ======
-  document.getElementById('moreBtn').addEventListener('click', () => {
-    haptic('medium');
-    if (isTelegram && tg.showPopup) {
-      tg.showPopup({
-        title: '更多操作',
-        message: '选择要执行的操作',
-        buttons: [
-          { id: 'block', type: 'destructive', text: '屏蔽用户' },
-          { id: 'report', type: 'default', text: '举报' },
-          { type: 'cancel', text: '取消' },
-        ]
-      }, (btnId) => {
-        if (btnId === 'block') {
-          haptic('warning');
-          showToast('已屏蔽用户');
-        } else if (btnId === 'report') {
-          haptic('warning');
-          showToast('举报已提交');
+function parseHistory(text) {
+    const lines = text.trim().split('\n').filter(l => l.trim());
+    const history = [];
+    for (const line of lines) {
+        const nums = line.trim().split(/[\s,，]+/).map(Number).filter(n => !isNaN(n) && n >= 0 && n <= 9);
+        if (nums.length >= 3) {
+            history.push({
+                nums: nums.slice(0, 3),
+                sum: nums.slice(0, 3).reduce((a, b) => a + b, 0),
+                combo: comboOf(nums.slice(0, 3))
+            });
         }
-      });
-    } else {
-      showToast('更多操作（在 Telegram 中可用）');
     }
-  });
+    return history;
+}
 
-  // ====== 操作按钮 ======
-  const actionMessages = {
-    call: '正在发起通话…',
-    mute: '已静音通知',
-    search: '搜索功能开启',
-    share: '分享链接已复制',
-  };
+// ============================================================
+// 因子构建引擎 — 12星轨因子
+// ============================================================
+function buildFactors(history) {
+    if (!history || history.length < 10) return null;
+    const n = history.length;
+    const lastCombo = history[n - 1].combo;
+    const ch = history.map(d => d.combo);
+    const sums = history.map(d => d.sum);
+    const r10 = history.slice(-10);
+    const r20 = history.slice(-20);
+    const r30 = history.slice(-30);
+    const r50 = history.slice(-50);
 
-  document.querySelectorAll('.action-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const action = btn.dataset.action;
-      haptic('medium');
+    // --- 星轨因子1: 星云多窗口贝叶斯频率 ---
+    const f10 = {}, f20 = {}, f30 = {}, f50 = {};
+    COMBOS.forEach(c => { f10[c] = 0; f20[c] = 0; f30[c] = 0; f50[c] = 0; });
+    r10.forEach(d => { if (f10[d.combo] !== undefined) f10[d.combo]++; });
+    r20.forEach(d => { if (f20[d.combo] !== undefined) f20[d.combo]++; });
+    r30.forEach(d => { if (f30[d.combo] !== undefined) f30[d.combo]++; });
+    r50.forEach(d => { if (f50[d.combo] !== undefined) f50[d.combo]++; });
+    const F_nebula = (c) =>
+        ((f10[c] + 1) / 14) * 0.4 +
+        ((f20[c] + 1) / 24) * 0.3 +
+        ((f30[c] + 1) / 34) * 0.2 +
+        ((f50[c] + 1) / 54) * 0.1;
 
-      if (action === 'share' && isTelegram && tg.switchInlineQuery) {
-        // 使用 Telegram 原生分享
-        tg.switchInlineQuery('看看这个超酷的个人资料页设计！', ['users']);
-        showToast('选择要分享的聊天');
-      } else {
-        showToast(actionMessages[action] || action);
-      }
-    });
-  });
-
-  // ====== 统计卡片 ======
-  document.querySelectorAll('.stat-card').forEach(card => {
-    card.addEventListener('click', () => {
-      haptic('light');
-      const labels = { posts: '帖子列表', friends: '好友列表', gifts: '礼物详情' };
-      showToast(labels[card.dataset.stat] || '');
-    });
-  });
-
-  // ====== 信息卡片 ======
-  document.querySelectorAll('.info-card').forEach(card => {
-    card.addEventListener('click', () => {
-      haptic('light');
-      const info = card.dataset.info;
-      const labels = {
-        phone: '拨打 +888 1234 5678',
-        location: '上海，中国',
-        bio: 'Designer · Traveler ✨',
-        music: '正在播放: Put A Spell On You',
-      };
-      showToast(labels[info] || '');
-    });
-  });
-
-  // ====== 切换栏 ======
-  const tabBar = document.getElementById('tabBar');
-  const tabItems = tabBar.querySelectorAll('.tab-item');
-  const tabIndicator = document.getElementById('tabIndicator');
-
-  function updateIndicator(item) {
-    const rect = item.getBoundingClientRect();
-    const barRect = tabBar.getBoundingClientRect();
-    tabIndicator.style.left = (rect.left - barRect.left) + 'px';
-    tabIndicator.style.width = rect.width + 'px';
-  }
-
-  // 初始化
-  requestAnimationFrame(() => {
-    const active = tabBar.querySelector('.tab-item.active');
-    if (active) updateIndicator(active);
-  });
-
-  tabItems.forEach(item => {
-    item.addEventListener('click', () => {
-      haptic('select');
-      tabItems.forEach(t => t.classList.remove('active'));
-      item.classList.add('active');
-      updateIndicator(item);
-
-      const tab = item.dataset.tab;
-      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-      const pane = document.getElementById('pane-' + tab);
-      if (pane) pane.classList.add('active');
-
-      // 重置滚动
-      document.getElementById('appContainer').scrollTo({ top: 0, behavior: 'smooth' });
-    });
-  });
-
-  // 窗口resize
-  window.addEventListener('resize', () => {
-    const active = tabBar.querySelector('.tab-item.active');
-    if (active) updateIndicator(active);
-  });
-
-  // ====== 内容项点击 ======
-  document.querySelectorAll('.content-item, .gift-card, .file-item, .music-item').forEach(item => {
-    item.addEventListener('click', () => {
-      haptic('light');
-    });
-  });
-
-  // ====== 主题变化监听 ======
-  if (isTelegram && tg.onEvent) {
-    tg.onEvent('themeChanged', () => {
-      const params = tg.themeParams;
-      if (params.bg_color) document.documentElement.style.setProperty('--tg-bg', params.bg_color);
-      if (params.text_color) document.documentElement.style.setProperty('--tg-text', params.text_color);
-      if (params.hint_color) document.documentElement.style.setProperty('--tg-hint', params.hint_color);
-      if (params.link_color) document.documentElement.style.setProperty('--tg-link', params.link_color);
-      if (params.button_color) document.documentElement.style.setProperty('--tg-button', params.button_color);
-    });
-
-    // 视口变化
-    tg.onEvent('viewportChanged', () => {
-      const active = tabBar.querySelector('.tab-item.active');
-      if (active) updateIndicator(active);
-    });
-  }
-
-  // ====== MainButton - 根据当前标签显示不同操作 ======
-  if (isTelegram && tg.MainButton) {
-    function updateMainButton(tab) {
-      const labels = {
-        posts: '发布新帖子',
-        gifts: '发送礼物',
-        media: '上传媒体',
-        files: '上传文件',
-        music: '添加音乐',
-      };
-      tg.MainButton.setText(labels[tab] || '操作');
-      tg.MainButton.show();
+    // --- 星轨因子2: 轨道转移链（近期衰减加权） ---
+    const decay = 0.94;
+    const t1 = {}, t2 = {}, t3 = {}, t4 = {};
+    for (let i = 0; i < n - 1; i++) {
+        const w = Math.pow(decay, n - 2 - i);
+        if (!t1[ch[i]]) t1[ch[i]] = {};
+        t1[ch[i]][ch[i + 1]] = (t1[ch[i]][ch[i + 1]] || 0) + w;
     }
-    updateMainButton('posts');
+    for (let i = 0; i < n - 2; i++) {
+        const w = Math.pow(decay, n - 3 - i);
+        const k = ch[i] + ',' + ch[i + 1];
+        if (!t2[k]) t2[k] = {};
+        t2[k][ch[i + 2]] = (t2[k][ch[i + 2]] || 0) + w;
+    }
+    for (let i = 0; i < n - 3; i++) {
+        const w = Math.pow(decay, n - 4 - i);
+        const k = ch[i] + ',' + ch[i + 1] + ',' + ch[i + 2];
+        if (!t3[k]) t3[k] = {};
+        t3[k][ch[i + 3]] = (t3[k][ch[i + 3]] || 0) + w;
+    }
+    for (let i = 0; i < n - 4; i++) {
+        const w = Math.pow(decay, n - 5 - i);
+        const k = ch[i] + ',' + ch[i + 1] + ',' + ch[i + 2] + ',' + ch[i + 3];
+        if (!t4[k]) t4[k] = {};
+        t4[k][ch[i + 4]] = (t4[k][ch[i + 4]] || 0) + w;
+    }
+    const prev1 = ch[n - 2] || lastCombo;
+    const prev2 = ch[n - 3] || prev1;
+    const prev3 = ch[n - 4] || prev2;
+    const mk2 = prev1 + ',' + lastCombo;
+    const mk3 = prev2 + ',' + prev1 + ',' + lastCombo;
+    const mk4 = prev3 + ',' + prev2 + ',' + prev1 + ',' + lastCombo;
+    const t1T = t1[lastCombo] ? Object.values(t1[lastCombo]).reduce((a, b) => a + b, 0) : 0;
+    const t2T = t2[mk2] ? Object.values(t2[mk2]).reduce((a, b) => a + b, 0) : 0;
+    const t3T = t3[mk3] ? Object.values(t3[mk3]).reduce((a, b) => a + b, 0) : 0;
+    const t4T = t4[mk4] ? Object.values(t4[mk4]).reduce((a, b) => a + b, 0) : 0;
 
-    tg.MainButton.onClick(() => {
-      haptic('success');
-      const activeTab = document.querySelector('.tab-item.active');
-      const tab = activeTab ? activeTab.dataset.tab : 'posts';
-      const messages = {
-        posts: '发布新帖子功能开启',
-        gifts: '选择礼物发送',
-        media: '上传媒体文件',
-        files: '上传文件',
-        music: '添加音乐',
-      };
-      showToast(messages[tab] || '操作');
+    const F_orbit = (c) => {
+        const v1 = t1T > 0 ? ((t1[lastCombo][c] || 0) + 0.5) / (t1T + 2) : 0.25;
+        const v2 = t2T > 0 ? ((t2[mk2][c] || 0) + 0.5) / (t2T + 2) : 0.25;
+        const v3 = t3T > 0 ? ((t3[mk3][c] || 0) + 0.5) / (t3T + 2) : 0.25;
+        const v4 = t4T > 0 ? ((t4[mk4][c] || 0) + 0.5) / (t4T + 2) : 0.25;
+        const w1 = 0.40, w2 = t2T >= 3 ? 0.30 : 0.25, w3 = t3T >= 3 ? 0.20 : 0.0, w4 = t4T >= 3 ? 0.10 : 0.0;
+        const ws = w1 + w2 + w3 + w4;
+        return (v1 * w1 + v2 * w2 + v3 * w3 + v4 * w4) / ws;
+    };
+
+    // --- 星轨因子3: 日蚀指数回归 ---
+    const miss = {}, avgGap = {};
+    COMBOS.forEach(c => {
+        let idx = n - 1;
+        while (idx >= 0 && ch[idx] !== c) idx--;
+        miss[c] = n - 1 - idx;
+        const gaps = [];
+        let ls = -1;
+        for (let i = 0; i < n; i++) {
+            if (ch[i] === c) { if (ls >= 0) gaps.push(i - ls); ls = i; }
+        }
+        avgGap[c] = gaps.length > 0 ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 4;
+    });
+    const F_eclipse = (c) => {
+        const ratio = miss[c] / (avgGap[c] || 1);
+        return 0.25 + (1 - Math.exp(-ratio * 0.8)) * 0.5;
+    };
+
+    // --- 星轨因子4: 彗星动量 (RSI增强) ---
+    const a10 = r10.reduce((s, d) => s + d.sum, 0) / Math.min(10, r10.length);
+    const a20 = r20.length > 0 ? r20.reduce((s, d) => s + d.sum, 0) / r20.length : a10;
+    const td = a10 - a20;
+    let bm = 0;
+    for (let i = n - 10; i < n; i++) { if (i >= 0 && ch[i].startsWith('大')) bm++; }
+    const F_comet = (c) => {
+        const ib = c.startsWith('大'), io = c.endsWith('单');
+        let s = 0.25;
+        if (td > 1) s = ib ? 0.35 : 0.15;
+        else if (td < -1) s = ib ? 0.15 : 0.35;
+        if (bm > 7) s = ib ? s * 1.4 : s * 0.6;
+        else if (bm < 3) s = ib ? s * 0.6 : s * 1.4;
+        if (n >= 3 && sums[n-1] > sums[n-2] && sums[n-2] > sums[n-3]) s = ib ? s * 1.25 : s * 0.75;
+        else if (n >= 3 && sums[n-1] < sums[n-2] && sums[n-2] < sums[n-3]) s = ib ? s * 0.75 : s * 1.25;
+        const or10 = r10.filter(d => Math.abs(d.sum) % 2 === 1).length / Math.min(10, r10.length);
+        if (or10 > 0.6) s = io ? s * 0.8 : s * 1.2;
+        else if (or10 < 0.4) s = io ? s * 1.2 : s * 0.8;
+        return Math.max(0.05, Math.min(0.55, s));
+    };
+
+    // --- 星轨因子5: 虚空抑制 ---
+    let rc = 0, tt = 0;
+    for (let i = 1; i < n; i++) { tt++; if (ch[i] === ch[i - 1]) rc++; }
+    const rr = tt > 0 ? rc / tt : 0.25;
+    const F_void = (c) => {
+        let st = 0;
+        for (let i = n - 1; i >= 0 && ch[i] === c; i--) st++;
+        return Math.max(0.05, 0.25 - st * 0.08 * Math.max(0.5, 0.25 / Math.max(0.05, rr)));
+    };
+
+    // --- 星轨因子6: 星座变长模式匹配 (2-7) ---
+    const F_constellation = (c) => {
+        let ts = 0, tw = 0;
+        for (let plen = 2; plen <= 7; plen++) {
+            if (n < plen + 1) continue;
+            const pat = ch.slice(-plen).join(',');
+            const matches = [];
+            for (let i = 0; i <= n - plen - 1; i++) {
+                if (ch.slice(i, i + plen).join(',') === pat) matches.push(ch[i + plen]);
+            }
+            if (matches.length > 0) {
+                const hr = matches.filter(s => s === c).length / matches.length;
+                const w = matches.length >= 2 ? plen * matches.length : 0;
+                ts += hr * w; tw += w;
+            }
+        }
+        return tw > 0 ? ts / tw : 0.25;
+    };
+
+    // --- 星轨因子7: 脉冲星周期分析 ---
+    const F_pulsar = (c) => {
+        const pos = [];
+        for (let i = 0; i < n; i++) { if (ch[i] === c) pos.push(i); }
+        if (pos.length < 3) return 0.25;
+        const intervals = [];
+        for (let i = 1; i < pos.length; i++) intervals.push(pos[i] - pos[i - 1]);
+        const ag = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+        if (ag === 0) return 0.25;
+        const v = intervals.reduce((a, b) => a + (b - ag) * (b - ag), 0) / intervals.length;
+        const cv = Math.sqrt(v) / ag;
+        const exp = pos[pos.length - 1] + ag;
+        const d = Math.abs(n - exp);
+        return 0.25 + Math.max(0, 1 - cv) * Math.max(0, 1 - d / ag) * 0.4;
+    };
+
+    // --- 星轨因子8: 类星体信息熵 ---
+    const f30m = {};
+    COMBOS.forEach(c => f30m[c] = 0);
+    r30.forEach(d => { if (f30m[d.combo] !== undefined) f30m[d.combo]++; });
+    let entropy = 0;
+    COMBOS.forEach(c => { const p = f30m[c] / Math.min(30, r30.length); if (p > 0) entropy -= p * Math.log2(p); });
+    const predictability = 1 - entropy / 2.0;
+    const F_quasar = (c) => 0.25 + ((f30m[c] + 1) / (Math.min(30, r30.length) + 4) - 0.25) * predictability * 1.5;
+
+    // --- 星轨因子9: 引力场-组合条件概率 ---
+    const srCur = sums[n-1] >= 18 ? 'high' : (sums[n-1] >= 10 ? 'mid' : 'low');
+    const cc = {};
+    for (let i = 0; i < n; i++) {
+        const sr = sums[i] >= 18 ? 'high' : (sums[i] >= 10 ? 'mid' : 'low');
+        if (!cc[sr]) cc[sr] = {};
+        cc[sr][ch[i]] = (cc[sr][ch[i]] || 0) + 1;
+    }
+    const F_gravity = (c) => {
+        if (cc[srCur]) {
+            const total = Object.values(cc[srCur]).reduce((a, b) => a + b, 0);
+            return ((cc[srCur][c] || 0) + 0.5) / (total + 2);
+        }
+        return 0.25;
+    };
+
+    // --- 星轨因子10: 漂移偏置 ---
+    const globalTrans = {};
+    COMBOS.forEach(c => { globalTrans[c] = {}; COMBOS.forEach(c2 => globalTrans[c][c2] = 0); });
+    for (let i = 0; i < n - 1; i++) globalTrans[ch[i]][ch[i + 1]]++;
+    const F_drift = (c) => {
+        if (t1T > 0) {
+            const total = Object.values(globalTrans[lastCombo]).reduce((a, b) => a + b, 0);
+            if (total > 0) return (globalTrans[lastCombo][c] + 0.5) / (total + 2);
+        }
+        return 0.25;
+    };
+
+    // --- 星轨因子11: 极光自适应窗口频率 ---
+    // 根据近期数据动态选择最佳窗口大小
+    const F_aurora = (c) => {
+        let bestScore = 0, bestWeight = 0;
+        for (const win of [5, 8, 12, 15, 20, 30]) {
+            const slice = history.slice(-win);
+            const freq = {};
+            COMBOS.forEach(cc => freq[cc] = 0);
+            slice.forEach(d => { if (freq[d.combo] !== undefined) freq[d.combo]++; });
+            // 计算这个窗口的预测力（频率偏离均匀的程度）
+            const deviation = COMBOS.reduce((s, cc) => s + Math.abs(freq[cc] / win - 0.25), 0);
+            const score = (freq[c] + 1) / (win + 4);
+            bestScore += score * deviation;
+            bestWeight += deviation;
+        }
+        return bestWeight > 0 ? bestScore / bestWeight : 0.25;
+    };
+
+    // --- 星轨因子12: 流星加权邻近模式 ---
+    // 给近期匹配更高的权重
+    const F_meteor = (c) => {
+        let ts = 0, tw = 0;
+        for (let plen = 2; plen <= 5; plen++) {
+            if (n < plen + 1) continue;
+            const pat = ch.slice(-plen).join(',');
+            for (let i = 0; i <= n - plen - 1; i++) {
+                if (ch.slice(i, i + plen).join(',') === pat) {
+                    const recencyWeight = (i + plen) / n; // 越近权重越高
+                    const target = ch[i + plen];
+                    if (target === c) ts += recencyWeight;
+                    tw += recencyWeight;
+                }
+            }
+        }
+        return tw > 0 ? ts / tw : 0.25;
+    };
+
+    return {
+        nebula: F_nebula, orbit: F_orbit, eclipse: F_eclipse, comet: F_comet,
+        void: F_void, constellation: F_constellation, pulsar: F_pulsar,
+        quasar: F_quasar, gravity: F_gravity, drift: F_drift,
+        aurora: F_aurora, meteor: F_meteor
+    };
+}
+
+// ============================================================
+// 单星轨因子回测 — Walk-Forward 验证
+// ============================================================
+function backtestFactor(fname, history, window) {
+    const n = history.length;
+    const btWin = Math.min(window, n - 5);
+    let hits = 0, total = 0;
+    for (let i = 0; i < btWin; i++) {
+        const endIdx = n - btWin + i;
+        if (endIdx < 15) continue;
+        const testFns = buildFactors(history.slice(0, endIdx));
+        if (!testFns || !testFns[fname]) continue;
+        let worst = COMBOS[0], worstVal = Infinity;
+        COMBOS.forEach(c => {
+            const v = testFns[fname](c);
+            if (v < worstVal) { worstVal = v; worst = c; }
+        });
+        if (worst !== history[endIdx].combo) hits++;
+        total++;
+    }
+    return total > 0 ? hits / total : 0.75;
+}
+
+// ============================================================
+// 星轨模式检测
+// ============================================================
+function detectRegime(history) {
+    const n = history.length;
+    const ch = history.map(d => d.combo);
+
+    // 引力偏移检测
+    const freq = {};
+    COMBOS.forEach(c => freq[c] = 0);
+    ch.forEach(c => freq[c]++);
+    const freqVals = Object.values(freq);
+    const avgFreq = n / 4;
+    const freqStd = Math.sqrt(freqVals.reduce((a, b) => a + (b - avgFreq) ** 2, 0) / 4);
+    const freqCV = avgFreq > 0 ? freqStd / avgFreq : 0;
+
+    // 轨道偏移检测
+    const t1 = {};
+    COMBOS.forEach(c => { t1[c] = {}; COMBOS.forEach(c2 => t1[c][c2] = 0); });
+    for (let i = 0; i < n - 1; i++) t1[ch[i]][ch[i + 1]]++;
+    let orbitDev = 0, orbitCount = 0;
+    COMBOS.forEach(from => {
+        const total = Object.values(t1[from]).reduce((a, b) => a + b, 0);
+        if (total > 0) {
+            COMBOS.forEach(to => {
+                orbitDev += Math.abs(t1[from][to] / total - 0.25);
+                orbitCount++;
+            });
+        }
+    });
+    const orbitScore = orbitCount > 0 ? orbitDev / orbitCount : 0;
+
+    // 周期性
+    let periodicScore = 0;
+    let periodicCount = 0;
+    COMBOS.forEach(c => {
+        const pos = [];
+        for (let i = 0; i < n; i++) { if (ch[i] === c) pos.push(i); }
+        if (pos.length >= 3) {
+            const intervals = [];
+            for (let i = 1; i < pos.length; i++) intervals.push(pos[i] - pos[i - 1]);
+            const ag = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+            if (ag > 0) {
+                const v = intervals.reduce((a, b) => a + (b - ag) ** 2, 0) / intervals.length;
+                const cv = Math.sqrt(v) / ag;
+                periodicScore += Math.max(0, 1 - cv);
+                periodicCount++;
+            }
+        }
+    });
+    periodicScore = periodicCount > 0 ? periodicScore / periodicCount : 0;
+
+    // 综合判断
+    const signals = [];
+    if (periodicScore > 0.5) signals.push('pulsar');
+    if (freqCV > 0.3) signals.push('gravity');
+    if (orbitScore > 0.15) signals.push('orbit');
+    if (signals.length === 0) return { regime: 'chaos', label: '深空混沌', score: 0, signals };
+    if (signals.length > 1) return { regime: 'galaxy', label: '混沌星系', score: 0.5, signals };
+
+    if (signals[0] === 'pulsar') return { regime: 'pulsar', label: '脉冲节律', score: periodicScore, signals };
+    if (signals[0] === 'gravity') return { regime: 'gravity', label: '引力偏移', score: freqCV, signals };
+    return { regime: 'orbit', label: '轨道锁定', score: orbitScore, signals };
+}
+
+// ============================================================
+// 策略1: 引力场杀组
+// ============================================================
+function strategyGravity(history, fns, dynW) {
+    const fnames = Object.keys(fns);
+    const rawScores = {};
+    COMBOS.forEach(c => {
+        rawScores[c] = fnames.reduce((s, f) => s + fns[f](c) * dynW[f], 0);
+    });
+    const sorted = COMBOS.slice().sort((a, b) => rawScores[a] - rawScores[b]);
+    return { kill: sorted[0], scores: rawScores };
+}
+
+// ============================================================
+// 策略2: 星系投票杀组
+// ============================================================
+function strategyGalaxy(history, fns, dynW) {
+    const killVotes = {};
+    COMBOS.forEach(c => killVotes[c] = 0);
+    Object.keys(fns).forEach(f => {
+        let worst = COMBOS[0], wv = Infinity;
+        COMBOS.forEach(c => { const v = fns[f](c); if (v < wv) { wv = v; worst = c; } });
+        killVotes[worst] += dynW[f];
+    });
+    return { kill: COMBOS.slice().sort((a, b) => killVotes[b] - killVotes[a])[0], votes: killVotes };
+}
+
+// ============================================================
+// 策略3: 超新星杀组
+// ============================================================
+function strategyNova(history) {
+    const r10 = history.slice(-10);
+    const freq = {};
+    COMBOS.forEach(c => freq[c] = 0);
+    r10.forEach(d => { if (freq[d.combo] !== undefined) freq[d.combo]++; });
+    return { kill: COMBOS.slice().sort((a, b) => freq[b] - freq[a])[0], freq };
+}
+
+// ============================================================
+// 策略4: 暗物质杀组
+// ============================================================
+function strategyDarkMatter(history) {
+    const r30 = history.slice(-30);
+    const freq = {};
+    COMBOS.forEach(c => freq[c] = 0);
+    r30.forEach(d => { if (freq[d.combo] !== undefined) freq[d.combo]++; });
+    return { kill: COMBOS.slice().sort((a, b) => freq[a] - freq[b])[0], freq };
+}
+
+// ============================================================
+// 策略5: 轨道路径杀组 (独立策略)
+// ============================================================
+function strategyOrbitPath(history) {
+    const fns = buildFactors(history);
+    if (!fns) return { kill: COMBOS[0] };
+    const scores = {};
+    COMBOS.forEach(c => { scores[c] = fns.orbit(c); });
+    return { kill: COMBOS.slice().sort((a, b) => scores[a] - scores[b])[0], scores };
+}
+
+// ============================================================
+// 策略6: 星座图谱杀组 (独立策略)
+// ============================================================
+function strategyStarMap(history) {
+    const fns = buildFactors(history);
+    if (!fns) return { kill: COMBOS[0] };
+    const scores = {};
+    COMBOS.forEach(c => { scores[c] = fns.constellation(c) + fns.meteor(c); });
+    return { kill: COMBOS.slice().sort((a, b) => scores[a] - scores[b])[0], scores };
+}
+
+// ============================================================
+// 策略7: 日蚀回归杀组 (独立策略)
+// ============================================================
+function strategyEclipseReturn(history) {
+    const fns = buildFactors(history);
+    if (!fns) return { kill: COMBOS[0] };
+    const scores = {};
+    COMBOS.forEach(c => { scores[c] = fns.eclipse(c); });
+    return { kill: COMBOS.slice().sort((a, b) => scores[a] - scores[b])[0], scores };
+}
+
+// ============================================================
+// 回测单个策略
+// ============================================================
+function backtestStrategy(stratName, history, window) {
+    const n = history.length;
+    const btWin = Math.min(window, n - 5);
+    let hits = 0, total = 0;
+    for (let i = 0; i < btWin; i++) {
+        const endIdx = n - btWin + i;
+        if (endIdx < 15) continue;
+        const th = history.slice(0, endIdx);
+        let kill = COMBOS[0];
+        if (stratName === '超新星') {
+            const r = strategyNova(th);
+            kill = r.kill;
+        } else if (stratName === '暗物质') {
+            const r = strategyDarkMatter(th);
+            kill = r.kill;
+        } else if (stratName === '轨道路径') {
+            const r = strategyOrbitPath(th);
+            kill = r.kill;
+        } else if (stratName === '星座图谱') {
+            const r = strategyStarMap(th);
+            kill = r.kill;
+        } else if (stratName === '日蚀回归') {
+            const r = strategyEclipseReturn(th);
+            kill = r.kill;
+        } else if (stratName === '引力场' || stratName === '星系投票') {
+            const testFns = buildFactors(th);
+            if (!testFns) continue;
+            const fnames = Object.keys(testFns);
+            const baseW = {};
+            fnames.forEach(f => baseW[f] = 1 / fnames.length);
+            if (stratName === '引力场') {
+                const r = strategyGravity(th, testFns, baseW);
+                kill = r.kill;
+            } else {
+                const r = strategyGalaxy(th, testFns, baseW);
+                kill = r.kill;
+            }
+        }
+        if (kill !== history[endIdx].combo) hits++;
+        total++;
+    }
+    return total > 0 ? hits / total : 0.75;
+}
+
+// ============================================================
+// 主预测函数 — 星轨元学习
+// ============================================================
+function predict(history) {
+    if (!history || history.length < 15) {
+        return { error: '数据不足，至少需要15期历史数据' };
+    }
+
+    const n = history.length;
+    const ch = history.map(d => d.combo);
+    const sums = history.map(d => d.sum);
+    const r10 = history.slice(-10);
+    const r30 = history.slice(-30);
+
+    // 构建因子
+    const fns = buildFactors(history);
+    if (!fns) return { error: '因子构建失败' };
+
+    const fnames = Object.keys(fns);
+    const baseW = {
+        nebula: 0.08, orbit: 0.18, eclipse: 0.10, comet: 0.06,
+        void: 0.08, constellation: 0.12, pulsar: 0.06,
+        quasar: 0.05, gravity: 0.07, drift: 0.05,
+        aurora: 0.08, meteor: 0.07
+    };
+
+    // 因子回测 — 多窗口加权
+    const factorHitRates = {};
+    fnames.forEach(f => {
+        const r20 = backtestFactor(f, history, 15);
+        const r30b = backtestFactor(f, history, 25);
+        factorHitRates[f] = r20 * 0.6 + r30b * 0.4;
     });
 
-    // 标签切换时更新 MainButton
-    tabItems.forEach(item => {
-      item.addEventListener('click', () => {
-        updateMainButton(item.dataset.tab);
-      });
+    // 贝叶斯式动态权重
+    const dynW = {};
+    fnames.forEach(f => {
+        const hr = factorHitRates[f];
+        const pr = Math.max(0.35, Math.min(2.2, hr / 0.75));
+        dynW[f] = baseW[f] * pr;
     });
-  }
+    const wSum = Object.values(dynW).reduce((a, b) => a + b, 0);
+    fnames.forEach(f => dynW[f] /= wSum);
+
+    // === 运行所有策略 ===
+    const strategies = {};
+
+    // 策略1: 引力场
+    const scoreResult = strategyGravity(history, fns, dynW);
+    strategies['引力场'] = { kill: scoreResult.kill, scores: scoreResult.scores };
+
+    // 策略2: 星系投票
+    const voteResult = strategyGalaxy(history, fns, dynW);
+    strategies['星系投票'] = { kill: voteResult.kill, votes: voteResult.votes };
+
+    // 策略3: 超新星杀组
+    const hotResult = strategyNova(history);
+    strategies['超新星'] = { kill: hotResult.kill };
+
+    // 策略4: 暗物质杀组
+    const coldResult = strategyDarkMatter(history);
+    strategies['暗物质'] = { kill: coldResult.kill };
+
+    // 策略5: 马尔可夫
+    const markovResult = strategyOrbitPath(history);
+    strategies['轨道路径'] = { kill: markovResult.kill };
+
+    // 策略6: 模式匹配
+    const patternResult = strategyStarMap(history);
+    strategies['星座图谱'] = { kill: patternResult.kill };
+
+    // 策略7: 遗漏回归
+    const missResult = strategyEclipseReturn(history);
+    strategies['日蚀回归'] = { kill: missResult.kill };
+
+    // === 回测各星轨策略近期表现 ===
+    const stratPerf = {};
+    for (const name of Object.keys(strategies)) {
+        stratPerf[name] = backtestStrategy(name, history, 20);
+    }
+
+    // === 星系投票 ===
+    // 根据星轨策略近期表现加权投票
+    const ensembleVotes = {};
+    COMBOS.forEach(c => ensembleVotes[c] = 0);
+    let totalWeight = 0;
+
+    for (const [name, info] of Object.entries(strategies)) {
+        const perf = stratPerf[name];
+        // 权重 = 近期表现^2 (表现好的策略权重更高)
+        const weight = Math.pow(Math.max(0.5, perf), 2.5);
+        ensembleVotes[info.kill] += weight;
+        totalWeight += weight;
+    }
+
+    // 归一化
+    COMBOS.forEach(c => ensembleVotes[c] /= totalWeight);
+
+    // === 最终杀组决策 ===
+    let def = COMBOS.slice().sort((a, b) => ensembleVotes[b] - ensembleVotes[a])[0];
+
+    // 引力场辅助验证
+    const sortedScores = COMBOS.slice().sort((a, b) => scoreResult.scores[a] - scoreResult.scores[b]);
+    const scoreWorst = sortedScores[0];
+
+    // 如果星系投票和引力场一致，增加置信度
+    let extraConfidence = 0;
+    if (def === scoreWorst) extraConfidence += 5;
+
+    // 超新星覆盖检测
+    const hotFreq = {};
+    COMBOS.forEach(c => hotFreq[c] = 0);
+    r10.forEach(d => { if (hotFreq[d.combo] !== undefined) hotFreq[d.combo]++; });
+    const hotCombo = COMBOS.slice().sort((a, b) => hotFreq[b] - hotFreq[a])[0];
+
+    if (hotFreq[hotCombo] >= 4 && hotCombo !== def) {
+        let hotHits = 0, hotTotal = 0;
+        for (let i = 0; i < Math.min(10, n - 15); i++) {
+            const endIdx = n - 10 + i;
+            if (endIdx < 15) continue;
+            const tr = history.slice(endIdx - 10, endIdx);
+            const tf = {};
+            COMBOS.forEach(c => tf[c] = 0);
+            tr.forEach(d => { if (tf[d.combo] !== undefined) tf[d.combo]++; });
+            const th = COMBOS.slice().sort((a, b) => tf[b] - tf[a])[0];
+            if (tf[th] >= 4) {
+                if (th !== history[endIdx].combo) hotHits++;
+                hotTotal++;
+            }
+        }
+        if (hotTotal > 0 && hotHits / hotTotal > 0.82) {
+            def = hotCombo;
+            extraConfidence += 3;
+        }
+    }
+
+    // 安全网：当整体表现差时，回退到最稳健策略
+    const avgHR = Object.values(stratPerf).reduce((a, b) => a + b, 0) / Object.keys(stratPerf).length;
+    if (avgHR < 0.72) {
+        // 找近期表现最好的策略
+        const bestStrat = Object.entries(stratPerf).sort((a, b) => b[1] - a[1])[0];
+        if (bestStrat[1] > avgHR + 0.05) {
+            def = strategies[bestStrat[0]].kill;
+        }
+    }
+
+    // === 推荐组合 ===
+    const sortedByScore = COMBOS.filter(c => c !== def).sort((a, b) => scoreResult.scores[b] - scoreResult.scores[a]);
+    const rec1 = sortedByScore[0];
+    const rec2 = sortedByScore[1];
+    const remaining = sortedByScore[2];
+
+    // === 星轨模式检测 ===
+    const regime = detectRegime(history);
+
+    // === 和值预测 ===
+    const predSum = Math.round(sums.slice(-10).reduce((a, b) => a + b, 0) / Math.min(10, r10.length));
+    const lastNums = history[n - 1].nums;
+    const groupBase = (predSum + lastNums[0] * 3 + lastNums[2] * 7) % 28;
+    const groupNum = String(groupBase).padStart(2, '0');
+
+    // === 置信度计算 ===
+    const scoreSpread = scoreResult.scores[rec1] - scoreResult.scores[def];
+    const consensusRate = Object.values(strategies).filter(s => s.kill === def).length / Object.keys(strategies).length;
+    const topVoteShare = ensembleVotes[def];
+    const predictability = 1 - (function() {
+        const f30m = {};
+        COMBOS.forEach(c => f30m[c] = 0);
+        r30.forEach(d => { if (f30m[d.combo] !== undefined) f30m[d.combo]++; });
+        let e = 0;
+        COMBOS.forEach(c => { const p = f30m[c] / Math.min(30, r30.length); if (p > 0) e -= p * Math.log2(p); });
+        return e / 2.0;
+    })();
+
+    const confidence = Math.min(99, Math.round(
+        Math.min(1, scoreSpread / 0.12) * 25 +
+        consensusRate * 30 +
+        avgHR * 20 +
+        predictability * 10 +
+        topVoteShare * 10 +
+        extraConfidence
+    ));
+
+    // === 分数缩放 ===
+    const allScores = [scoreResult.scores[rec1], scoreResult.scores[rec2], scoreResult.scores[def], scoreResult.scores[remaining]];
+    const minS = Math.min(...allScores), maxS = Math.max(...allScores);
+    const range = maxS - minS || 1;
+    const scaleScore = (s) => Math.round(9 + ((s - minS) / range) * 12);
+
+    // === 星系一致性 ===
+    const consensusCount = Object.values(strategies).filter(s => s.kill === def).length;
+    const consensusPct = Math.round(consensusCount / Object.keys(strategies).length * 100);
+
+    return {
+        killGroup: def,
+        rec1, rec2, remaining,
+        scores: `${String(scaleScore(scoreResult.scores[rec1])).padStart(2,'0')}/${String(scaleScore(scoreResult.scores[rec2])).padStart(2,'0')}/${String(scaleScore(scoreResult.scores[def])).padStart(2,'0')}/${String(scaleScore(scoreResult.scores[remaining])).padStart(2,'0')}`,
+        confidence,
+        dataCount: n,
+        predSum,
+        groupNum,
+        regime,
+        factorHitRates,
+        dynWeights: dynW,
+        rawScores: scoreResult.scores,
+        stratPerf,
+        avgHitRate: avgHR,
+        bestStrat: Object.entries(stratPerf).sort((a, b) => b[1] - a[1])[0][0],
+        ensembleVotes,
+        strategies,
+        consensusPct,
+        predictability
+    };
+}
+
+// ============================================================
+// UI 交互逻辑
+// ============================================================
+function runPredict() {
+    const text = document.getElementById('input').value;
+    const history = parseHistory(text);
+    if (history.length < 15) {
+        alert('至少需要15期历史数据，当前仅 ' + history.length + ' 期');
+        return;
+    }
+
+    // 显示加载动画
+    const loaderCard = document.getElementById('loaderCard');
+    const resultCard = document.getElementById('resultCard');
+    resultCard.classList.remove('show');
+    loaderCard.style.display = 'block';
+
+    // 异步执行给UI渲染时间
+    setTimeout(() => {
+        const result = predict(history);
+        loaderCard.style.display = 'none';
+
+        if (result.error) {
+            alert(result.error);
+            return;
+        }
+
+        displayResult(result, history);
+    }, 50);
+}
+
+function displayResult(result, history) {
+    const section = document.getElementById('resultCard');
+    section.classList.add('show');
+
+    // 杀组
+    document.getElementById('killGroup').textContent = result.killGroup;
+    document.getElementById('killSub').textContent = `置信度 ${result.confidence}% · 星系投票 ${(result.ensembleVotes[result.killGroup] * 100).toFixed(0)}%`;
+
+    // 推荐
+    document.getElementById('recCombos').textContent = result.rec1 + ' ' + result.rec2;
+    document.getElementById('recSub').textContent = `主推 ${result.rec1} · 次推 ${result.rec2}`;
+
+    // 分数
+    const sd = document.getElementById('scoreRow');
+    const parts = result.scores.split('/');
+    sd.innerHTML = `
+        <div class="chip chip-rec">${result.rec1} ${parts[0]}</div>
+        <div class="chip chip-rec">${result.rec2} ${parts[1]}</div>
+        <div class="chip chip-kill">${result.killGroup} ${parts[2]}</div>
+        <div class="chip chip-rem">${result.remaining} ${parts[3]}</div>
+    `;
+
+    // 置信度
+    setTimeout(() => {
+        document.getElementById('confBar').style.width = result.confidence + '%';
+    }, 150);
+    document.getElementById('confVal').textContent = result.confidence + '%';
+
+    // 基本信息
+    document.getElementById('dataCount').textContent = result.dataCount + ' 期';
+    document.getElementById('sumPred').textContent = result.predSum;
+    document.getElementById('groupNum').textContent = result.groupNum;
+    document.getElementById('bestStrat').textContent = result.bestStrat;
+    document.getElementById('btRate').textContent = (result.avgHitRate * 100).toFixed(1) + '%';
+    document.getElementById('consensus').textContent = result.consensusPct + '%';
+
+    // 星轨模式检测
+    const rb = document.getElementById('regimeBadge');
+    const rCls = `r-${result.regime.regime}`;
+    rb.innerHTML = `<div class="regime-badge ${rCls}"><div class="regime-dot"></div>${result.regime.label}</div>`;
+
+    // 星系投票
+    const eg = document.getElementById('ensembleGrid');
+    eg.innerHTML = '';
+    const sortedEns = Object.entries(result.strategies).sort((a, b) => result.stratPerf[b[0]] - result.stratPerf[a[0]]);
+    sortedEns.forEach(([name, info]) => {
+        const perf = result.stratPerf[name];
+        const perfPct = (perf * 100).toFixed(0);
+        const isKill = info.kill === result.killGroup;
+        eg.innerHTML += `
+            <div class="ens-item">
+                <div>
+                    <div class="ens-name">${name}</div>
+                    <div style="font-size:10px; color:var(--text-4); margin-top:2px;">近期 ${perfPct}%</div>
+                </div>
+                <div class="ens-vote ${isKill ? 'kill' : 'keep'}">${info.kill}</div>
+            </div>
+        `;
+    });
+
+    // 因子权重
+    const fg = document.getElementById('factorsGrid');
+    fg.innerHTML = '';
+    const sortedFactors = Object.entries(result.dynWeights).sort((a, b) => b[1] - a[1]);
+    const colors = ['#0A84FF', '#BF5AF2', '#30D158', '#FF9F0A', '#64D2FF', '#FF375F', '#5E5CE6', '#FFD60A', '#32ADE6', '#FF453A', '#40C8E0', '#FF6482'];
+    sortedFactors.forEach(([name, w], i) => {
+        const hr = result.factorHitRates[name];
+        const pct = (w * 100).toFixed(1);
+        const hrPct = (hr * 100).toFixed(0);
+        const color = colors[i % colors.length];
+        fg.innerHTML += `
+            <div class="factor-item">
+                <div class="f-name">${name}</div>
+                <div class="f-track">
+                    <div class="f-fill" style="width:${pct}%; background:${color}; color:${color};"></div>
+                </div>
+                <div class="f-pct">${pct}%</div>
+                <div class="f-hr">${hrPct}%</div>
+            </div>
+        `;
+    });
+
+    // 策略表现
+    const sl = document.getElementById('stratList');
+    sl.innerHTML = '';
+    const sortedStrats = Object.entries(result.stratPerf).sort((a, b) => b[1] - a[1]);
+    const stratColors = ['#30D158', '#0A84FF', '#BF5AF2', '#FF9F0A', '#64D2FF', '#FF375F', '#5E5CE6'];
+    sortedStrats.forEach(([name, rate], i) => {
+        const isBest = name === result.bestStrat;
+        const ratePct = (rate * 100).toFixed(0);
+        const color = stratColors[i % stratColors.length];
+        sl.innerHTML += `
+            <div class="strat-row ${isBest ? 'best' : ''}">
+                <span class="strat-name">${name}</span>
+                <span class="strat-rate">
+                    ${ratePct}%
+                    <div class="strat-bar"><div class="strat-bar-fill" style="width:${ratePct}%; background:${color};"></div></div>
+                    ${isBest ? '⭐' : ''}
+                </span>
+            </div>
+        `;
+    });
+
+    // 滚动到结果
+    setTimeout(() => {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 200);
+}
+
+function loadDemo() {
+    // 生成示例数据（带轨道转移+引力偏移模式）
+    const trans = {
+        '小单': { '小双': 0.32, '大单': 0.28, '大双': 0.22, '小单': 0.18 },
+        '小双': { '大单': 0.30, '大双': 0.25, '小单': 0.28, '小双': 0.17 },
+        '大单': { '大双': 0.33, '小单': 0.27, '小双': 0.22, '大单': 0.18 },
+        '大双': { '小单': 0.30, '小双': 0.28, '大单': 0.24, '大双': 0.18 },
+    };
+    let cur = '小单';
+    const lines = [];
+    for (let i = 0; i < 60; i++) {
+        const r = Math.random();
+        let cum = 0;
+        for (const [combo, p] of Object.entries(trans[cur])) {
+            cum += p;
+            if (r < cum) { cur = combo; break; }
+        }
+        const total = cur.startsWith('小') ? Math.floor(Math.random() * 14) : 14 + Math.floor(Math.random() * 14);
+        const t = Math.max(3, total);
+        const n1 = Math.floor(Math.random() * 10);
+        const n2 = Math.floor(Math.random() * 10);
+        const n3 = Math.max(0, Math.min(9, t - n1 - n2));
+        const nums = [n1, n2, n3];
+        for (let j = nums.length - 1; j > 0; j--) {
+            const k = Math.floor(Math.random() * (j + 1));
+            [nums[j], nums[k]] = [nums[k], nums[j]];
+        }
+        lines.push(nums.join(' '));
+    }
+    document.getElementById('input').value = lines.join('\n');
+}
+
+function clearAll() {
+    document.getElementById('input').value = '';
+    document.getElementById('resultCard').classList.remove('show');
+    document.getElementById('loaderCard').style.display = 'none';
+}
+
+// 快捷键
+document.getElementById('input').addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter') runPredict();
+});
 </script>
-
 </body>
 </html>
