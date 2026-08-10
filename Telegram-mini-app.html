@@ -8651,7 +8651,9 @@
             async fetchData(isAutoRetry = false) {
                 if (this.isFetching) return;
                 this.isFetching = true;
-                if (!isAutoRetry) this.setStatus('loading');
+                // 后台轮询（已有数据且非自动重试）不显示loading，避免状态徽章闪烁
+                const isBackgroundPoll = this.lastFetchedPeriod && !isAutoRetry;
+                if (!isBackgroundPoll) this.setStatus('loading');
                 if (!isAutoRetry) this._fetchRetryCount = 0;
                 try {
                     // ===== 单API：新API支持CORS，返回60条历史+countdown =====
@@ -8722,7 +8724,6 @@
                             this._apiCountDown = data.countdown;
                             this.setupCountdown(); // 用API最新countdown刷新倒计时目标
                         }
-                        this._updateSyncStatus('synced', '数据已同步');
                         this.setStatus('ready');
                         this._fetchRetryCount = 0;
                         return;
@@ -11619,7 +11620,6 @@
             }
 
             setupCountdown() {
-                if (this.countdownRAF) cancelAnimationFrame(this.countdownRAF);
                 const latest = this.apiData[this.apiData.length-1];
                 if (!latest) return;
                 // 新API: opentimeStamp从date+time转换的Unix时间戳(秒)，opentime是"2026-08-10 20:50:00"格式
@@ -11633,16 +11633,21 @@
                 } else {
                     nextOpenTime = new Date(lastOpenTime.getTime() + CONFIG.DRAW_INTERVAL);
                 }
-                const totalTime = nextOpenTime - lastOpenTime;
+                // 存储到实例变量，RAF循环直接读取，无需取消重启
+                this._countdownTarget = nextOpenTime;
+                this._countdownTotal = nextOpenTime - lastOpenTime;
+                this._countdownHasTriggered = false; // 新期重置触发标志
+
+                // RAF已在运行 → 仅更新目标时间，不取消重启，避免倒计时环跳闪
+                if (this.countdownRAF) return;
                 const circumference = 2 * Math.PI * 30;
                 this.dom.ringProgress.setAttribute('stroke-dasharray', circumference.toFixed(3));
                 let lastTimestamp = 0;
-                let hasTriggeredFetch = false; // 防止重复触发
                 const update = (timestamp) => {
                     if (!lastTimestamp) lastTimestamp = timestamp;
                     if (timestamp - lastTimestamp < 500) { this.countdownRAF = requestAnimationFrame(update); return; }
                     lastTimestamp = timestamp;
-                    const diff = nextOpenTime - Date.now();
+                    const diff = (this._countdownTarget || new Date()) - Date.now();
                     if (diff <= 0) {
                         this.dom.cdText.textContent = '更新数据...';
                         this.dom.cdText.classList.add('urgent');
@@ -11651,16 +11656,18 @@
                         this.dom.ringProgress.style.strokeDashoffset = circumference.toFixed(3);
                         this.dom.ringProgress.classList.add('urgent');
                         // 智能重试：倒计时归零后开始轮询新期数据
-                        if (!hasTriggeredFetch) {
-                            hasTriggeredFetch = true;
+                        if (!this._countdownHasTriggered) {
+                            this._countdownHasTriggered = true;
                             this._updateSyncStatus('waiting', '等待新期开奖...');
                             this.newPeriodRetryCount = 0;
                             // 延迟1.5秒后开始轮询（给API一点缓冲时间）
                             this.smartFetchTimer = setTimeout(() => this.fetchData(true), 1500);
                         }
+                        this.countdownRAF = requestAnimationFrame(update);
                         return;
                     }
-                    const progress = Math.max(0, diff/totalTime);
+                    const total = this._countdownTotal || CONFIG.DRAW_INTERVAL;
+                    const progress = Math.max(0, diff/total);
                     const offset = circumference * (1 - progress);
                     const m = Utils.fmtNum(Math.floor(diff/60000));
                     const s = Utils.fmtNum(Math.floor((diff%60000)/1000));
@@ -11672,7 +11679,7 @@
                     this.dom.ringProgress.classList.toggle('urgent', urgent);
                     this.dom.ringText.classList.toggle('urgent', urgent);
                     // 显示实时同步状态
-                    if (!hasTriggeredFetch) {
+                    if (!this._countdownHasTriggered) {
                         this._updateSyncStatus('idle', `下期 ${m}:${s}`);
                     }
                     this.countdownRAF = requestAnimationFrame(update);
@@ -11766,6 +11773,9 @@
             }
 
             setStatus(status) {
+                // 幂等保护：状态未变时跳过DOM操作，避免徽章闪烁
+                if (this._lastStatus === status) return;
+                this._lastStatus = status;
                 const el = this.dom.statusIndicator;
                 const apiEl = this.dom.apiStatus;
                 if (status === 'loading') {
