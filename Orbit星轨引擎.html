@@ -1402,14 +1402,22 @@
 
         // ==================== 配置 ====================
         const CONFIG = {
-            // 新API：支持CORS，返回完整历史(60条)+countdown
+            // GitHub Actions 后台定时抓取的数据文件（即使没人打开页面也在持续更新）
+            _GITHUB_DATA: 'data/latest.json',
+            // 实时API：支持CORS，返回完整历史(60条)+countdown
             _API: 'https://pc28.help/api/kj.json?nbr=60',
             get API_URLS() {
                 const raw = this._API;
                 return [
-                    raw,                                                // 新API支持CORS，直连最快
+                    raw,                                                // 实时API直连最快
                     'https://proxy.cors.sh/' + raw,                     // 备用1（Cloudflare代理）
                     'https://api.allorigins.win/raw?url=' + encodeURIComponent(raw),  // 备用2
+                ];
+            },
+            // GitHub后台数据文件URL（相对路径，同源请求，无CORS问题）
+            get GITHUB_DATA_URLS() {
+                return [
+                    this._GITHUB_DATA + '?t=' + Date.now(),  // 加时间戳避免缓存
                 ];
             },
             // 新API字段映射：nbr=期号, number=号码(+分隔), date+time=时间, num=和值, combination=形态
@@ -1437,15 +1445,18 @@
                 PRED_CACHE: 'orbit-pred-cache-v4'  // 历史预测记录持久化缓存（防止刷新后重算导致结果变化）
             },
             FETCH_INTERVAL: 2*60*1000, FETCH_TIMEOUT: 8000, MAX_HISTORY: 50,
-            VIRTUAL_BALANCE: 100000, CACHE_TTL: 10*60*1000,
-            // P0优化：实现指数退避重试（替代之前定义但未使用的MAX_RETRIES/RETRY_DELAY死代码）
+            VIRTUAL_BALANCE: 100000, CACHE_TTL: 5*60*1000,
+            // P0优化：实现指数退避重试
             MAX_FETCH_RETRIES: 3, RETRY_BASE_DELAY: 1000,
-            // P0优化：PRED_CACHE每算法期数上限，防止localStorage无限增长
+            // P0优化：PRED_CACHE每算法期数上限
             PRED_CACHE_MAX_PERIODS: 100,
             DRAW_INTERVAL: 3*60*1000 + 30*1000, NEW_PERIOD_RETRY_DELAY: 3000, NEW_PERIOD_MAX_RETRIES: 8,
             BET_AMOUNT: 100, BET_WIN: 190, BACKTEST_DEFAULT_COUNT: 50, BACKFILL_LIMIT: 30,
-            // ===== 从 Python bot 移植的系统功能配置 =====
-            BACKGROUND_POLL_INTERVAL: 15*1000,   // 后台轮询间隔（15秒，更敏捷的新期检测）
+            // 自适应轮询：倒计时>60s时30秒轮一次，<60s时10秒轮一次，<20s时5秒轮一次
+            BACKGROUND_POLL_INTERVAL: 30*1000,
+            POLL_INTERVAL_FAR: 30*1000,   // 远离开奖
+            POLL_INTERVAL_NEAR: 10*1000,  // 接近开奖(<60s)
+            POLL_INTERVAL_URGENT: 5*1000, // 即将开奖(<20s)
             DRAGON_ALERT_THRESHOLD: 4,            // 长龙提醒阈值（连续≥4期同一形态）
             MOCK_DATA_ENABLED: true,              // API全不可用时启用模拟数据兜底
             MOCK_DATA_COUNT: 20,                  // 模拟数据条数
@@ -8656,19 +8667,45 @@
                 if (!isBackgroundPoll) this.setStatus('loading');
                 if (!isAutoRetry) this._fetchRetryCount = 0;
                 try {
-                    // ===== 单API：新API支持CORS，返回60条历史+countdown =====
-                    const urls = CONFIG.API_URLS;
-                    const fetchOne = async (url) => {
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT);
-                        const resp = await fetch(url, { signal: controller.signal });
-                        clearTimeout(timeoutId);
-                        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-                        const d = await resp.json();
-                        if (!d || !Array.isArray(d.data) || d.data.length === 0) throw new Error('数据为空');
-                        return d;
-                    };
-                    const data = await Promise.any(urls.map(fetchOne));
+                    // ===== 数据获取策略：GitHub后台数据(同源快) → 实时API(直连) → 代理 =====
+                    let data = null;
+                    let lastErr = null;
+
+                    // 1. 先尝试GitHub后台数据文件（GitHub Actions每5分钟自动更新）
+                    for (const url of CONFIG.GITHUB_DATA_URLS) {
+                        try {
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 4000);
+                            const resp = await fetch(url, { signal: controller.signal });
+                            clearTimeout(timeoutId);
+                            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                            const d = await resp.json();
+                            if (!d || !Array.isArray(d.data) || d.data.length === 0) throw new Error('数据为空');
+                            data = d;
+                            this.currentSource = 'GitHub后台';
+                            break;
+                        } catch(e) { lastErr = e; }
+                    }
+
+                    // 2. GitHub数据文件不可用时，尝试实时API
+                    if (!data) {
+                        for (const url of CONFIG.API_URLS) {
+                            try {
+                                const controller = new AbortController();
+                                const timeoutId = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT);
+                                const resp = await fetch(url, { signal: controller.signal });
+                                clearTimeout(timeoutId);
+                                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                                const d = await resp.json();
+                                if (!d || !Array.isArray(d.data) || d.data.length === 0) throw new Error('数据为空');
+                                data = d;
+                                this.currentSource = '实时API';
+                                break;
+                            } catch(e) { lastErr = e; }
+                        }
+                    }
+
+                    if (!data) throw lastErr || new Error('所有数据源均不可用');
 
                     let list = data.data || [];
                     if (!Array.isArray(list) || list.length === 0) throw new Error('数据为空');
@@ -8734,7 +8771,6 @@
                     this.newPeriodRetryCount = 0;
                     // 新API返回完整历史数据(最多60条)，reverse后变为时间正序(旧→新)
                     this.apiData = formatted.reverse();
-                    this.currentSource = 'API';
                     this._isMockData = false;
                     const mb = document.getElementById('mock-banner'); if(mb) mb.style.display='none';
                     this.settleBet();
@@ -8779,12 +8815,12 @@
                 } catch (e) {
                     console.error('获取数据失败:', e);
                     this._updateSyncStatus('error', '同步失败');
-                    // P1优化：指数退避重试（首次失败时触发，避免UI冻结等待）
-                    if (!isAutoRetry && this._fetchRetryCount < CONFIG.MAX_FETCH_RETRIES) {
+                    // 指数退避重试（保留计数器不被重置，防止死循环）
+                    if (this._fetchRetryCount < CONFIG.MAX_FETCH_RETRIES) {
                         this._fetchRetryCount++;
                         const delay = CONFIG.RETRY_BASE_DELAY * Math.pow(2, this._fetchRetryCount - 1);
                         this._updateSyncStatus('waiting', `重试中(${this._fetchRetryCount}/${CONFIG.MAX_FETCH_RETRIES})...`);
-                        setTimeout(() => this.fetchData(false), delay);
+                        setTimeout(() => this.fetchData(true), delay); // isAutoRetry=true 避免重置计数器
                     } else if (this.apiData.length > 0) {
                         // 有缓存数据，继续使用（后台轮询会自动重试获取真实数据）
                         this.currentSource = '缓存（过期）';
@@ -8814,6 +8850,9 @@
 
             // ===== 实时同步状态指示器 =====
             _updateSyncStatus(state, msg) {
+                const key = state + '|' + (msg || '');
+                if (this._lastSyncKey === key) return; // 状态和文字都没变，跳过DOM写入
+                this._lastSyncKey = key;
                 const badge = document.getElementById('api-status');
                 if (!badge) return;
                 const dot = badge.querySelector('.status-dot');
@@ -11645,7 +11684,7 @@
                 let lastTimestamp = 0;
                 const update = (timestamp) => {
                     if (!lastTimestamp) lastTimestamp = timestamp;
-                    if (timestamp - lastTimestamp < 500) { this.countdownRAF = requestAnimationFrame(update); return; }
+                    if (timestamp - lastTimestamp < 1000) { this.countdownRAF = requestAnimationFrame(update); return; }
                     lastTimestamp = timestamp;
                     const diff = (this._countdownTarget || new Date()) - Date.now();
                     if (diff <= 0) {
@@ -12225,20 +12264,27 @@
             // ===== 从 Python bot 移植的系统功能（核心） =====
             // ================================================================
 
-            // ===== 后台轮询：15秒间隔持续拉取数据 =====
+            // ===== 自适应轮询：根据倒计时远近动态调整间隔 =====
             startBackgroundPolling() {
                 this.stopBackgroundPolling();
-                this.backgroundPollTimer = setInterval(() => {
-                    if (!this.isFetching) {
-                        this.fetchData();
-                    }
-                }, CONFIG.BACKGROUND_POLL_INTERVAL);
-                // 算法对比面板无需独立定时器：连中值仅在开奖后变化，
-                // fetchData → render → renderAlgoCompare 已覆盖更新场景
+                this._scheduleNextPoll();
+            }
+            _scheduleNextPoll() {
+                // 根据倒计时剩余时间决定下次轮询间隔
+                let interval = CONFIG.POLL_INTERVAL_FAR;
+                if (this._countdownTarget) {
+                    const diff = this._countdownTarget - Date.now();
+                    if (diff <= 20*1000) interval = CONFIG.POLL_INTERVAL_URGENT;
+                    else if (diff <= 60*1000) interval = CONFIG.POLL_INTERVAL_NEAR;
+                }
+                this.backgroundPollTimer = setTimeout(() => {
+                    if (!this.isFetching) this.fetchData();
+                    this._scheduleNextPoll();
+                }, interval);
             }
             stopBackgroundPolling() {
                 if (this.backgroundPollTimer) {
-                    clearInterval(this.backgroundPollTimer);
+                    clearTimeout(this.backgroundPollTimer);
                     this.backgroundPollTimer = null;
                 }
                 if (this.algoCompareTimer) {
