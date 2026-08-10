@@ -8716,6 +8716,18 @@
                         return;
                     }
 
+                    // 期号未变且非自动重试（后台轮询）→ 仅刷新倒计时，跳过全量render防闪烁
+                    if (this.lastFetchedPeriod && !isPeriodAdvanced && !isAutoRetry) {
+                        if (data.countdown) {
+                            this._apiCountDown = data.countdown;
+                            this.setupCountdown(); // 用API最新countdown刷新倒计时目标
+                        }
+                        this._updateSyncStatus('synced', '数据已同步');
+                        this.setStatus('ready');
+                        this._fetchRetryCount = 0;
+                        return;
+                    }
+
                     // 期号已更新 或 首次加载
                     this.lastFetchedPeriod = newLatestPeriod;
                     this.newPeriodRetryCount = 0;
@@ -9799,6 +9811,9 @@
                 this.dom.curTime.textContent = latest.opentime;
                 this.dom.curCombo.textContent = latest.combo;
                 this.dom.curSum.textContent = latest.sum;
+                // 期号未变时跳过号码球重建，避免动画重复触发导致闪烁
+                if (this._lastRenderedPeriod === latest.period) return;
+                this._lastRenderedPeriod = latest.period;
                 const container = this.dom.latestNums;
                 container.innerHTML = '';
                 latest.nums.forEach((num, idx) => {
@@ -12208,13 +12223,8 @@
                         this.fetchData();
                     }
                 }, CONFIG.BACKGROUND_POLL_INTERVAL);
-                // ===== 算法对比面板实时刷新定时器（5秒） =====
-                this.algoCompareTimer = setInterval(() => {
-                    if (this.algoCompareOpen && this.apiData.length >= 1) {
-                        // 轻量级刷新：仅更新连中等统计，不重新请求API
-                        this._refreshAlgoCompareLive();
-                    }
-                }, 5000);
+                // 算法对比面板无需独立定时器：连中值仅在开奖后变化，
+                // fetchData → render → renderAlgoCompare 已覆盖更新场景
             }
             stopBackgroundPolling() {
                 if (this.backgroundPollTimer) {
@@ -12225,14 +12235,6 @@
                     clearInterval(this.algoCompareTimer);
                     this.algoCompareTimer = null;
                 }
-            }
-            // 算法对比面板实时刷新：动态更新连中数据
-            _refreshAlgoCompareLive() {
-                if (!this.algoCompareOpen || !this.dom.algoGrid) return;
-                // 真实数据刷新：仅重新渲染面板，不篡改连中值
-                // 连中值由 calculateAllStats 基于真实历史数据计算，新期开奖后自动更新
-                this.renderAlgoCompare();
-                this._lastAlgoRender = Date.now();
             }
 
             // P0优化：统一清理所有定时器、监听器和连接，防止页面卸载后资源泄漏
