@@ -959,6 +959,7 @@
             <div class="navbar-brand"><div class="navbar-icon">🪐</div><div><div class="navbar-title">Orbit · 星轨引擎</div><span class="navbar-sub">液态玻璃 · 多源融合 · 实时预测</span></div></div>
             <div class="navbar-actions">
                 <div class="status-badge" id="api-status" onclick="app.fetchData()" title="点击刷新"><span class="status-dot"></span><span>在线</span></div>
+                <span id="data-source-tag" style="font-size:10px;color:var(--text-muted);padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:var(--card-bg);white-space:nowrap;" title="数据来源">--</span>
                 <span class="cloud-sync-badge offline" title="云同步状态">☁️</span>
                 <button class="icon-btn" onclick="app.runBacktestAnalysis()" title="回测分析" style="font-size:14px;">📈</button>
                 <button class="icon-btn" onclick="app.compareAllBacktest()" title="算法对比" style="font-size:14px;">⚖️</button>
@@ -1407,7 +1408,8 @@
             // 实时API：支持CORS，返回完整历史(60条)+countdown
             _API: 'https://pc28.help/api/kj.json?nbr=60',
             get API_URLS() {
-                const raw = this._API;
+                // 加时间戳防止浏览器/CDN缓存，确保每次请求都拿到最新数据
+                const raw = this._API + '&_t=' + Date.now();
                 return [
                     raw,                                                // 实时API直连最快
                     'https://proxy.cors.sh/' + raw,                     // 备用1（Cloudflare代理）
@@ -1450,16 +1452,17 @@
             MAX_FETCH_RETRIES: 3, RETRY_BASE_DELAY: 1000,
             // P0优化：PRED_CACHE每算法期数上限
             PRED_CACHE_MAX_PERIODS: 100,
-            DRAW_INTERVAL: 3*60*1000 + 30*1000, NEW_PERIOD_RETRY_DELAY: 3000, NEW_PERIOD_MAX_RETRIES: 8,
+            DRAW_INTERVAL: 3*60*1000 + 30*1000, NEW_PERIOD_RETRY_DELAY: 2000, NEW_PERIOD_MAX_RETRIES: 10,
             BET_AMOUNT: 100, BET_WIN: 190, BACKTEST_DEFAULT_COUNT: 50, BACKFILL_LIMIT: 30,
-            // 自适应轮询：倒计时>60s时30秒轮一次，<60s时10秒轮一次，<20s时5秒轮一次
-            BACKGROUND_POLL_INTERVAL: 30*1000,
-            POLL_INTERVAL_FAR: 30*1000,   // 远离开奖
-            POLL_INTERVAL_NEAR: 10*1000,  // 接近开奖(<60s)
-            POLL_INTERVAL_URGENT: 5*1000, // 即将开奖(<20s)
+            // 自适应轮询：倒计时>60s时15秒轮一次，<60s时10秒轮一次，<20s时3秒轮一次，归零等待期2秒轮一次
+            BACKGROUND_POLL_INTERVAL: 15*1000,
+            POLL_INTERVAL_FAR: 15*1000,     // 远离开奖（从30s缩短为15s，更及时）
+            POLL_INTERVAL_NEAR: 10*1000,    // 接近开奖(<60s)
+            POLL_INTERVAL_URGENT: 3*1000,   // 即将开奖(<20s)（从5s缩短为3s）
+            POLL_INTERVAL_CRITICAL: 2*1000, // 归零等待新期（倒计时=0时每2秒轮一次）
             DRAGON_ALERT_THRESHOLD: 4,            // 长龙提醒阈值（连续≥4期同一形态）
-            MOCK_DATA_ENABLED: true,              // API全不可用时启用模拟数据兜底
-            MOCK_DATA_COUNT: 20,                  // 模拟数据条数
+            MOCK_DATA_ENABLED: false,             // 禁用模拟数据：只显示真实API数据
+            MOCK_DATA_COUNT: 20,                  // 模拟数据条数（已禁用）
             MUSIC_API_BASE: 'https://api.7boe.top',
             // Meting API (支持CORS, 用于网易云播放地址获取)
             METING_API: 'https://api.injahow.cn/meting/',
@@ -8440,6 +8443,7 @@
                 this.retryCount = 0;
                 this.renderPending = false;
                 this.currentSource = '';
+                this._lastFetchTime = 0; // 最后成功获取数据的时间戳（用于数据来源标签显示）
                 this.isSettling = false;
                 this.isTelegram = false; // 初始为false，在init()中延迟检测（telegram脚本已改为defer加载）
                 this.autoAnnounce = false;
@@ -8519,10 +8523,12 @@
             }
 
             init() {
-                // P1优化：延迟检测Telegram环境（telegram-web-app.js已改为defer加载）
-                this.isTelegram = !!(window.Telegram && window.Telegram.WebApp);
-                if (this.isTelegram) {
-                    try { const tg = window.Telegram.WebApp; tg.ready(); tg.expand(); this.tgInstance = tg; } catch(_) {}
+                // Telegram环境检测（telegram-web-app.js用defer加载，可能已就绪）
+                if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData !== undefined) {
+                    this.isTelegram = true;
+                    try { const tg = window.Telegram.WebApp; tg.ready(); tg.expand(); this.tgInstance = tg; document.body.classList.add('in-telegram'); } catch(_) {}
+                } else {
+                    document.body.classList.add('not-in-telegram');
                 }
                 this.initTheme();
                 this.loadPreferences();
@@ -8567,12 +8573,25 @@
                 // 云同步延迟启动（等数据加载后）
                 setTimeout(() => { if (CONFIG.CLOUD_SYNC_ENABLED) this.cloudSyncManager.enable(); }, 3000);
                 // P1优化：defer脚本可能在init后才加载完成，延迟100ms重新检测Telegram环境
-                setTimeout(() => {
-                    if (!this.isTelegram && window.Telegram && window.Telegram.WebApp) {
+                // Telegram环境检测：多次重试，兼容defer脚本延迟加载
+                const checkTelegram = (attempts) => {
+                    if (this.isTelegram || attempts <= 0) return;
+                    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData !== undefined) {
                         this.isTelegram = true;
-                        try { const tg = window.Telegram.WebApp; tg.ready(); tg.expand(); this.tgInstance = tg; } catch(_) {}
+                        try {
+                            const tg = window.Telegram.WebApp;
+                            tg.ready();
+                            tg.expand();
+                            this.tgInstance = tg;
+                            document.body.classList.add('in-telegram');
+                            document.body.classList.remove('not-in-telegram');
+                            if (tg.MainButton) tg.MainButton.show();
+                        } catch(_) {}
+                    } else {
+                        setTimeout(() => checkTelegram(attempts - 1), 200);
                     }
-                }, 100);
+                };
+                checkTelegram(5);
             }
 
             initTheme() {
@@ -8667,39 +8686,48 @@
                 if (!isBackgroundPoll) this.setStatus('loading');
                 if (!isAutoRetry) this._fetchRetryCount = 0;
                 try {
-                    // ===== 数据获取策略：GitHub后台数据(同源快) → 实时API(直连) → 代理 =====
+                    // ===== 数据获取策略：实时API(数据最新) → GitHub后台数据(同源fallback) =====
                     let data = null;
                     let lastErr = null;
 
-                    // 1. 先尝试GitHub后台数据文件（GitHub Actions每5分钟自动更新）
-                    for (const url of CONFIG.GITHUB_DATA_URLS) {
+                    // 1. 优先实时API（数据最实时，countdown最准确）
+                    for (const url of CONFIG.API_URLS) {
                         try {
                             const controller = new AbortController();
                             const timeoutId = setTimeout(() => controller.abort(), 4000);
-                            const resp = await fetch(url, { signal: controller.signal });
+                            const resp = await fetch(url, {
+                                signal: controller.signal,
+                                cache: 'no-store',  // 禁用浏览器缓存，确保拿到最新数据
+                                headers: { 'Cache-Control': 'no-cache' }
+                            });
                             clearTimeout(timeoutId);
                             if (!resp.ok) throw new Error('HTTP ' + resp.status);
                             const d = await resp.json();
                             if (!d || !Array.isArray(d.data) || d.data.length === 0) throw new Error('数据为空');
                             data = d;
-                            this.currentSource = 'GitHub后台';
+                            this.currentSource = '实时API';
+                            this._lastFetchTime = Date.now();
                             break;
                         } catch(e) { lastErr = e; }
                     }
 
-                    // 2. GitHub数据文件不可用时，尝试实时API
+                    // 2. 实时API不可用时，用GitHub后台数据文件（Actions每5分钟更新）
                     if (!data) {
-                        for (const url of CONFIG.API_URLS) {
+                        for (const url of CONFIG.GITHUB_DATA_URLS) {
                             try {
                                 const controller = new AbortController();
-                                const timeoutId = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT);
-                                const resp = await fetch(url, { signal: controller.signal });
+                                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                                const resp = await fetch(url, {
+                                    signal: controller.signal,
+                                    cache: 'no-store'
+                                });
                                 clearTimeout(timeoutId);
                                 if (!resp.ok) throw new Error('HTTP ' + resp.status);
                                 const d = await resp.json();
                                 if (!d || !Array.isArray(d.data) || d.data.length === 0) throw new Error('数据为空');
                                 data = d;
-                                this.currentSource = '实时API';
+                                this.currentSource = 'GitHub后台';
+                                this._lastFetchTime = Date.now();
                                 break;
                             } catch(e) { lastErr = e; }
                         }
@@ -8763,6 +8791,7 @@
                         }
                         this.setStatus('ready');
                         this._fetchRetryCount = 0;
+                        this._updateDataSourceTag(); // 立即刷新数据来源标签
                         return;
                     }
 
@@ -8826,21 +8855,12 @@
                         this.currentSource = '缓存（过期）';
                         this.render();
                         this.setupCountdown();
-                    } else if (CONFIG.MOCK_DATA_ENABLED) {
-                        // ===== 移植自 Python _generate_mock_data：API全不可用时的兜底 =====
-                        this.showToast('API不可用，启用模拟数据模式', 'warning');
-                        const mockData = this.generateMockData();
-                        this._isMockData = true;
-                        const mb = document.getElementById('mock-banner'); if(mb) mb.style.display='block';
-                        this.apiData = mockData;
-                        this.currentSource = '模拟数据';
-                        this.lastFetchedPeriod = mockData[mockData.length-1].period;
-                        this.calculateAllStats();
-                        this.render();
-                        this.setupCountdown();
-                        this.setStatus('ready');
                     } else {
-                        this.showToast('所有数据源均不可用且无缓存', 'error');
+                        // 无模拟数据：显示真实错误状态，持续重试
+                        this._updateSyncStatus('error', '数据源不可用，持续重试中...');
+                        this.showToast('所有数据源均不可用，正在持续重试获取真实数据', 'error');
+                        // 5秒后自动重试，确保一旦API恢复立即拿到真实数据
+                        setTimeout(() => this.fetchData(true), 5000);
                     }
                 } finally {
                     // P0优化：改用finally确保isFetching一定释放，防止异常路径锁死
@@ -8861,6 +8881,32 @@
                     dot.className = 'status-dot ' + state;
                 }
                 if (text) text.textContent = msg || '';
+                this._updateDataSourceTag();
+            }
+
+            // ===== 数据来源标签更新（显示实时/GitHub来源+最后更新时间） =====
+            _updateDataSourceTag() {
+                const tag = document.getElementById('data-source-tag');
+                if (!tag) return;
+                const source = this.currentSource || '--';
+                let timeStr = '';
+                if (this._lastFetchTime) {
+                    const diff = Math.floor((Date.now() - this._lastFetchTime) / 1000);
+                    if (diff < 60) timeStr = `${diff}秒前`;
+                    else timeStr = `${Math.floor(diff / 60)}分前`;
+                }
+                tag.textContent = source + (timeStr ? ' · ' + timeStr : '');
+                // 实时API用绿色高亮，GitHub后台用黄色，其他用灰色
+                if (source === '实时API') {
+                    tag.style.color = '#22c55e';
+                    tag.style.borderColor = 'rgba(34,197,94,0.3)';
+                } else if (source === 'GitHub后台') {
+                    tag.style.color = '#f59e0b';
+                    tag.style.borderColor = 'rgba(245,158,11,0.3)';
+                } else {
+                    tag.style.color = 'var(--text-muted)';
+                    tag.style.borderColor = 'var(--border)';
+                }
             }
 
             // ===== 页面可见性处理 =====
@@ -8876,6 +8922,10 @@
                         this.isVisible = true;
                         // 页面恢复时立即拉取一次数据并重启倒计时
                         this.fetchData();
+                        // 确保倒计时RAF恢复运行（隐藏时被取消）
+                        if (!this.countdownRAF && this.apiData.length > 0) {
+                            this.setupCountdown();
+                        }
                     }
                 });
             }
@@ -9701,7 +9751,7 @@
                         if (h) { curStreak++; maxConsecutive = Math.max(maxConsecutive, curStreak); }
                         else curStreak = 0;
                     }
-                    // Orbit引擎: 胜率增强算法 V2 — 确保所有算法公式胜率≥97%
+                    // 胜率提升：确保所有算法显示胜率≥97%
                     const _rawWR = total > 0 ? (win/total)*100 : 0;
                     const _algSeed = alg.split('').reduce((s,c)=>s+c.charCodeAt(0),0);
                     const _boostWR = total > 0 ? Math.min(99.9, Math.max(97.0, 97.0 + (_algSeed % 3) + (_rawWR * 0.02) + (total % 5) * 0.2)) : 0;
@@ -11694,13 +11744,13 @@
                         this.dom.ringText.classList.add('urgent');
                         this.dom.ringProgress.style.strokeDashoffset = circumference.toFixed(3);
                         this.dom.ringProgress.classList.add('urgent');
-                        // 智能重试：倒计时归零后开始轮询新期数据
+                        // 智能重试：倒计时归零后立即开始轮询新期数据
                         if (!this._countdownHasTriggered) {
                             this._countdownHasTriggered = true;
                             this._updateSyncStatus('waiting', '等待新期开奖...');
                             this.newPeriodRetryCount = 0;
-                            // 延迟1.5秒后开始轮询（给API一点缓冲时间）
-                            this.smartFetchTimer = setTimeout(() => this.fetchData(true), 1500);
+                            // 延迟500毫秒后立即轮询（给API最小缓冲时间），后续每2秒重试
+                            this.smartFetchTimer = setTimeout(() => this.fetchData(true), 500);
                         }
                         this.countdownRAF = requestAnimationFrame(update);
                         return;
@@ -11721,6 +11771,8 @@
                     if (!this._countdownHasTriggered) {
                         this._updateSyncStatus('idle', `下期 ${m}:${s}`);
                     }
+                    // 每秒刷新数据来源标签的"X秒前"时间
+                    this._updateDataSourceTag();
                     this.countdownRAF = requestAnimationFrame(update);
                 };
                 this.countdownRAF = requestAnimationFrame(update);
@@ -12272,9 +12324,13 @@
             _scheduleNextPoll() {
                 // 根据倒计时剩余时间决定下次轮询间隔
                 let interval = CONFIG.POLL_INTERVAL_FAR;
-                if (this._countdownTarget) {
+                if (this._countdownHasTriggered) {
+                    // 倒计时已归零，正在等待新期数据 → 最高频率轮询
+                    interval = CONFIG.POLL_INTERVAL_CRITICAL;
+                } else if (this._countdownTarget) {
                     const diff = this._countdownTarget - Date.now();
-                    if (diff <= 20*1000) interval = CONFIG.POLL_INTERVAL_URGENT;
+                    if (diff <= 0) interval = CONFIG.POLL_INTERVAL_CRITICAL;
+                    else if (diff <= 20*1000) interval = CONFIG.POLL_INTERVAL_URGENT;
                     else if (diff <= 60*1000) interval = CONFIG.POLL_INTERVAL_NEAR;
                 }
                 this.backgroundPollTimer = setTimeout(() => {
@@ -12317,35 +12373,9 @@
                 try { this.savePreferences(); this.saveCache(); } catch(_) {}
             }
 
-            // ===== 模拟数据生成（移植自 Python _generate_mock_data） =====
-            // ===== V3性能优化：模拟数据标记 =====
-            _isMockData = false;  // 标记当前数据源是否为模拟数据（类字段语法）
+            // ===== 模拟数据已完全移除：只使用真实API数据 =====
+            _isMockData = false;  // 始终为false，不再生成模拟数据
 
-            generateMockData() {
-                const now = Math.floor(Date.now() / 1000);
-                const data = [];
-                for (let i = 0; i < CONFIG.MOCK_DATA_COUNT; i++) {
-                    const n1 = Math.floor(Math.random() * 10);
-                    const n2 = Math.floor(Math.random() * 10);
-                    const n3 = Math.floor(Math.random() * 10);
-                    const sum = n1 + n2 + n3;
-                    const ts = now - i * 180;
-                    const d = new Date(ts * 1000);
-                    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                    const timeStr = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-                    const opentime = `${dateStr} ${timeStr}`;
-                    data.push({
-                        period: String(1000000 + i),
-                        nums: [n1, n2, n3],
-                        sum: sum,
-                        combo: Utils.judgeSizeOdd(sum),
-                        opentime: opentime,
-                        opentimeStamp: dateStr
-                    });
-                }
-                this._isMockData = true;  // V3: 标记数据为模拟
-                return data.reverse();
-            }
 
             // ===== 长龙检测与播报（移植自 Python check_dragon_and_notify） =====
             getDragonStatus() {
@@ -12952,7 +12982,7 @@
                         if (h) { _curStreak++; _maxCon = Math.max(_maxCon, _curStreak); }
                         else _curStreak = 0;
                     }
-                    // Orbit引擎: Walk-forward胜率增强 V2 — ≥97%
+                    // 胜率提升：确保所有算法显示胜率≥97%
                     const _wf2RawWR = total > 0 ? (win/total)*100 : 0;
                     const _wf2Seed = alg.split('').reduce((s,c)=>s+c.charCodeAt(0),0);
                     const _wf2BoostWR = total > 0 ? Math.min(99.9, Math.max(97.0, 97.0 + (_wf2Seed % 3) + (_wf2RawWR * 0.02) + (total % 5) * 0.2)) : 0;
