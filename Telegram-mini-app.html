@@ -1402,18 +1402,18 @@
 
         // ==================== 配置 ====================
         const CONFIG = {
-            // 新API: pc28.help/api/kj.json — 返回 countDown + data[{no,date,time,number,num,combination}]
-            _RAW_API: 'https://pc28.help/api/kj.json',
+            // 新API：支持CORS，返回完整历史(60条)+countdown
+            _API: 'https://pc28.help/api/kj.json?nbr=60',
             get API_URLS() {
-                const raw = this._RAW_API;
+                const raw = this._API;
                 return [
                     raw,                                                // 新API支持CORS，直连最快
                     'https://proxy.cors.sh/' + raw,                     // 备用1（Cloudflare代理）
                     'https://api.allorigins.win/raw?url=' + encodeURIComponent(raw),  // 备用2
-                    'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(raw),  // 备用3
                 ];
             },
-            FIELD_MAP: { period: 'nbr', opencode: 'number', opentime: 'time', opentimeStamp: 'date', sum: 'num', combo: 'combination' },
+            // 新API字段映射：nbr=期号, number=号码(+分隔), date+time=时间, num=和值, combination=形态
+            FIELD_MAP: { period: 'nbr', opencode: 'number', opentime: 'time', opentimeDate: 'date' },
             ALGORITHM_NAMES: {
                 shuying_v1: '星轨·天璇', shuying_v2: '星轨·天枢', module1: '逆行星', module2: '轨道捕手',
                 module3: '冷热星探', module4: '引力锚点', module5: '超新星爆发', fusion_vote: '星系融合',
@@ -8652,9 +8652,9 @@
                 if (this.isFetching) return;
                 this.isFetching = true;
                 if (!isAutoRetry) this.setStatus('loading');
-                if (!isAutoRetry) this._fetchRetryCount = 0; // 重置重试计数
+                if (!isAutoRetry) this._fetchRetryCount = 0;
                 try {
-                    // ===== 多源并行：所有源同时请求，最快成功者即用（Promise.any） =====
+                    // ===== 单API：新API支持CORS，返回60条历史+countdown =====
                     const urls = CONFIG.API_URLS;
                     const fetchOne = async (url) => {
                         const controller = new AbortController();
@@ -8667,10 +8667,12 @@
                         return d;
                     };
                     const data = await Promise.any(urls.map(fetchOne));
+
                     let list = data.data || [];
                     if (!Array.isArray(list) || list.length === 0) throw new Error('数据为空');
-                    // 捕获API返回的countdown用于精确倒计时同步
+                    // 捕获API返回的countdown用于精确倒计时
                     if (data.countdown) this._apiCountDown = data.countdown;
+
                     const fm = CONFIG.FIELD_MAP;
                     const formatted = list
                         .filter(item => item[fm.period] && item[fm.opencode] !== undefined)
@@ -8679,31 +8681,34 @@
                             const raw = item[fm.opencode];
                             if (typeof raw === 'string') nums = raw.split(/[+,]/).map(n => parseInt(n.trim(),10)).filter(n => !isNaN(n));
                             else if (Array.isArray(raw)) nums = raw.map(n => parseInt(n,10)).filter(n => !isNaN(n));
-                            // 新API已预算好sum和combo，优先使用；兜底自行计算
-                            const sum = item[fm.sum] ? parseInt(item[fm.sum],10) : nums.reduce((a,b)=>a+b,0);
-                            const combo = item[fm.combo] || Utils.judgeSizeOdd(sum);
+                            const sum = nums.reduce((a,b)=>a+b,0);
+                            const combo = Utils.judgeSizeOdd(sum);
+                            // 新API: date + time 组合为完整时间
+                            const dateStr = item[fm.opentimeDate] || '';
                             const timeStr = item[fm.opentime] || '';
-                            const dateStr = item[fm.opentimeStamp] || '';
-                            // 拼接完整时间字符串 "2024-08-09 22:03:30" 用于倒计时
-                            const fullTime = dateStr && timeStr ? `${dateStr} ${timeStr}` : (timeStr || dateStr);
-                            return { period: String(item[fm.period]), nums, sum, combo, opentime: fullTime, opentimeStamp: dateStr || 0 };
+                            const opentimeText = dateStr && timeStr ? `${dateStr} ${timeStr}` : timeStr || dateStr;
+                            // 转换为Unix时间戳（秒）
+                            let opentimeStamp = 0;
+                            if (opentimeText) {
+                                const dt = new Date(opentimeText.replace(/-/g, '/'));
+                                if (!isNaN(dt.getTime())) opentimeStamp = Math.floor(dt.getTime() / 1000);
+                            }
+                            return { period: String(item[fm.period]), nums, sum, combo, opentime: opentimeText, opentimeStamp };
                         })
                         .filter(item => item.period && item.nums.length === 3);
                     if (formatted.length < 1) throw new Error('无有效数据');
 
                     // ===== 智能期号检测 =====
-                    const newLatestPeriod = String(formatted[0].period);  // API返回最新期在前
+                    const newLatestPeriod = String(formatted[0].period);
                     const isPeriodAdvanced = this.lastFetchedPeriod && newLatestPeriod !== this.lastFetchedPeriod;
 
                     if (this.lastFetchedPeriod && !isPeriodAdvanced && isAutoRetry) {
-                        // 自动重试时期号未更新 — 继续等待（isFetching由finally块统一释放）
                         this.newPeriodRetryCount++;
                         if (this.newPeriodRetryCount <= CONFIG.NEW_PERIOD_MAX_RETRIES) {
                             this.setStatus('waiting');
                             this._updateSyncStatus('waiting', `等待新期开奖... (${this.newPeriodRetryCount}/${CONFIG.NEW_PERIOD_MAX_RETRIES})`);
                             this.smartFetchTimer = setTimeout(() => this.fetchData(true), CONFIG.NEW_PERIOD_RETRY_DELAY);
                         } else {
-                            // 超过重试次数，恢复正常倒计时
                             this.newPeriodRetryCount = 0;
                             this._updateSyncStatus('idle', '同步完成');
                             this.setupCountdown();
@@ -8714,22 +8719,8 @@
                     // 期号已更新 或 首次加载
                     this.lastFetchedPeriod = newLatestPeriod;
                     this.newPeriodRetryCount = 0;
-                    // ===== 新API增量合并：API可能只返回最新1期，需与已有数据合并 =====
-                    if (formatted.length >= 4) {
-                        // API返回多期数据，直接替换
-                        this.apiData = formatted.reverse();
-                    } else if (this.apiData.length > 0) {
-                        // API返回少量数据（1-3期），增量合并到已有数据（去重）
-                        const reversed = formatted.reverse(); // 转为时间正序（旧→新）
-                        const existingPeriods = new Set(this.apiData.map(d => d.period));
-                        const newItems = reversed.filter(f => !existingPeriods.has(f.period));
-                        if (newItems.length > 0) {
-                            this.apiData = [...this.apiData, ...newItems].slice(-CONFIG.MAX_HISTORY);
-                        }
-                    } else {
-                        // 首次加载且数据量少，直接使用
-                        this.apiData = formatted.reverse();
-                    }
+                    // 新API返回完整历史数据(最多60条)，reverse后变为时间正序(旧→新)
+                    this.apiData = formatted.reverse();
                     this.currentSource = 'API';
                     this._isMockData = false;
                     const mb = document.getElementById('mock-banner'); if(mb) mb.style.display='none';
@@ -11624,9 +11615,9 @@
                 if (this.countdownRAF) cancelAnimationFrame(this.countdownRAF);
                 const latest = this.apiData[this.apiData.length-1];
                 if (!latest) return;
-                // 新API: opentime 是 "2024-08-09 22:03:30" 格式的完整时间字符串
-                const lastOpenTime = new Date(latest.opentime || latest.opentimeStamp);
-                // 如果API返回了countDown，优先使用它计算下次开奖时间
+                // 新API: opentimeStamp从date+time转换的Unix时间戳(秒)，opentime是"2026-08-10 20:50:00"格式
+                const lastOpenTime = latest.opentimeStamp > 0 ? new Date(latest.opentimeStamp * 1000) : new Date(latest.opentime);
+                // 如果新API返回了countdown，优先使用它计算下次开奖时间
                 let nextOpenTime;
                 if (this._apiCountDown) {
                     const [cm, cs] = this._apiCountDown.split(':').map(n => parseInt(n, 10));
