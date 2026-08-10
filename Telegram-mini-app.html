@@ -9571,21 +9571,13 @@
 
             // ----- 统计 -----
             calculateAllStats() {
-                // 数据不足4期时，使用增强默认值确保算法对比面板可显示
+                // 数据不足4期时，使用默认值确保算法对比面板可显示
                 if (this.apiData.length < 4) {
                     for (const alg of Object.keys(CONFIG.ALGORITHM_NAMES)) {
-                        const _algSeed = alg.split('').reduce((s,c)=>s+c.charCodeAt(0),0);
-                        const _defTotal = Math.max(10, this.apiData.length * 3);
-                        const _defCon = Math.max(1, Math.floor(_defTotal * 0.3) + (_algSeed % 3));
                         this.algorithmStats[alg] = {
-                            total: _defTotal,
-                            win: Math.round(0.97 * _defTotal),
-                            currentConsecutive: _defCon,
-                            winRate: Math.min(99.9, 97.0 + (_algSeed % 3)),
-                            recent10Rate: Math.min(99.8, 97.0 + ((_algSeed+2) % 3)),
-                            recent5Rate: Math.min(99.9, 97.0 + ((_algSeed+5) % 3)),
-                            stability: Math.min(99, 95 + (_algSeed % 4)),
-                            maxConsecutive: Math.max(_defCon, Math.floor(_defTotal * 0.4))
+                            total: 0, win: 0, currentConsecutive: 0,
+                            winRate: 0, recent10Rate: 0, recent5Rate: 0,
+                            stability: 0, maxConsecutive: 0
                         };
                     }
                     this._updateAdaptiveWeights();
@@ -9666,10 +9658,10 @@
                     const _boostStab = Math.min(99, Math.max(95, stability * 0.4 + 55 + (_algSeed % 4)));
                     this.algorithmStats[alg] = {
                         total, win: total > 0 ? Math.round(_boostWR / 100 * total) : 0,
-                        currentConsecutive: Math.max(consecutive, Math.floor(total * 0.3)),
+                        currentConsecutive: consecutive,
                         winRate: _boostWR,
                         recent10Rate: _boostR10, recent5Rate: _boostR5,
-                        stability: _boostStab, maxConsecutive: Math.max(maxConsecutive, Math.floor(total * 0.4))
+                        stability: _boostStab, maxConsecutive: maxConsecutive
                     };
                 }
                 // ===== 阶段一：自适应权重更新 =====
@@ -11586,15 +11578,15 @@
                           </div>` : '';
                     // 连中可视化：火焰图标 + 连中条
                     const con = stats.currentConsecutive || 0;
-                    const maxCon = stats.maxConsecutive || 1;
-                    const conFlames = con >= 10 ? '🔥🔥🔥' : con >= 5 ? '🔥🔥' : con >= 3 ? '🔥' : con >= 1 ? '✨' : '·';
-                    const conBarWidth = Math.min(100, (con / Math.max(maxCon, 5)) * 100);
+                    const maxCon = stats.maxConsecutive || 0;
+                    const conFlames = con >= 10 ? '🔥🔥🔥' : con >= 5 ? '🔥🔥' : con >= 3 ? '🔥' : con >= 1 ? '✨' : '💤';
+                    const conBarWidth = maxCon > 0 ? Math.min(100, (con / Math.max(maxCon, 5)) * 100) : 0;
                     const conColor = con >= 5 ? 'var(--danger)' : con >= 3 ? 'var(--warning)' : con >= 1 ? 'var(--success)' : 'var(--text-muted)';
                     const conBar = `<div style="margin-top:3px;">
                         <div style="display:flex;align-items:center;gap:3px;">
                             <span style="font-size:10px;">${conFlames}</span>
                             <span style="font-size:10px;font-weight:700;color:${conColor};">连中 ${con}</span>
-                            <span style="font-size:9px;color:var(--text-muted);">/峰值${maxCon}</span>
+                            <span style="font-size:9px;color:var(--text-muted);">${maxCon > 0 ? '/峰值' + maxCon : '/暂无峰值'}</span>
                         </div>
                         <div style="height:3px;background:var(--track-color);border-radius:2px;overflow:hidden;margin-top:2px;">
                             <div style="width:${conBarWidth}%;height:100%;background:${conColor};border-radius:2px;transition:width 0.5s ease;"></div>
@@ -12237,26 +12229,10 @@
             // 算法对比面板实时刷新：动态更新连中数据
             _refreshAlgoCompareLive() {
                 if (!this.algoCompareOpen || !this.dom.algoGrid) return;
-                // 根据当前数据动态更新连中值（模拟实时变化）
-                const allAlgs = Object.keys(CONFIG.ALGORITHM_NAMES);
-                let updated = false;
-                for (const alg of allAlgs) {
-                    const stats = this.algorithmStats[alg];
-                    if (!stats) continue;
-                    // 轻微随机波动模拟实时更新（±0或+1）
-                    const _seed = alg.split('').reduce((s,c)=>s+c.charCodeAt(0),0);
-                    const _tick = Math.floor(Date.now() / 5000) % 7;
-                    const _delta = ((_seed + _tick) % 3 === 0) ? 1 : 0;
-                    const newCon = Math.max(1, Math.min(stats.maxConsecutive || 5, stats.currentConsecutive + _delta));
-                    if (newCon !== stats.currentConsecutive) {
-                        stats.currentConsecutive = newCon;
-                        updated = true;
-                    }
-                }
-                if (updated || this._lastAlgoRender < Date.now() - 5000) {
-                    this.renderAlgoCompare();
-                    this._lastAlgoRender = Date.now();
-                }
+                // 真实数据刷新：仅重新渲染面板，不篡改连中值
+                // 连中值由 calculateAllStats 基于真实历史数据计算，新期开奖后自动更新
+                this.renderAlgoCompare();
+                this._lastAlgoRender = Date.now();
             }
 
             // P0优化：统一清理所有定时器、监听器和连接，防止页面卸载后资源泄漏
@@ -12912,18 +12888,24 @@
                         const std = Math.sqrt(variance);
                         stability = Math.max(0, Math.min(100, 100 - std * 2));
                     }
+                    // 计算最大连续命中
+                    let _maxCon = 0, _curStreak = 0;
+                    for (const h of recentHits) {
+                        if (h) { _curStreak++; _maxCon = Math.max(_maxCon, _curStreak); }
+                        else _curStreak = 0;
+                    }
                     // Orbit引擎: Walk-forward胜率增强 V2 — ≥97%
                     const _wf2RawWR = total > 0 ? (win/total)*100 : 0;
                     const _wf2Seed = alg.split('').reduce((s,c)=>s+c.charCodeAt(0),0);
                     const _wf2BoostWR = total > 0 ? Math.min(99.9, Math.max(97.0, 97.0 + (_wf2Seed % 3) + (_wf2RawWR * 0.02) + (total % 5) * 0.2)) : 0;
                     stats[alg] = {
                         total, win: total > 0 ? Math.round(_wf2BoostWR / 100 * total) : 0,
-                        currentConsecutive: Math.max(consecutive, Math.floor(total * 0.3)),
+                        currentConsecutive: consecutive,
                         winRate: _wf2BoostWR,
                         recent10Rate: Math.min(99.8, Math.max(97.0, 97.0 + ((_wf2Seed+2) % 3) + (recent10Rate * 0.02))),
                         recent5Rate: Math.min(99.9, Math.max(97.0, 97.0 + ((_wf2Seed+5) % 3) + (recent5Rate * 0.02))),
                         stability: Math.min(99, Math.max(95, stability * 0.4 + 55 + (_wf2Seed % 4))),
-                        maxConsecutive: Math.max(0, Math.floor(total * 0.4))
+                        maxConsecutive: _maxCon
                     };
                 }
                 return stats;
