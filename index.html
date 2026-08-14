@@ -1917,8 +1917,7 @@ if (document.readyState === 'complete') {
             // ===== 阶段四：AI助手 & i18n =====
             AI_ASSISTANT_ENABLED: true,
             I18N_LANGUAGES: { zh: '中文', en: 'English', vi: 'Tiếng Việt' },
-            I18N_DEFAULT_LANG: 'zh'
-        
+            I18N_DEFAULT_LANG: 'zh',   // ✅ 修复：添加缺失的逗号
             ALGORITHM_STALE_THRESHOLD: 5 * 60 * 1000, // 5分钟未更新视为过期
 };
 
@@ -4705,7 +4704,7 @@ if (document.readyState === 'complete') {
                 combos.forEach(c => {
                     let score = 0;
                     for (const fName of factorNames) {
-                        score += factorFns[fName](c) * dynWeights[fName];
+                        score += factorFns[f](c) * dynWeights[f];
                     }
                     rawScores[c] = score;
                 });
@@ -11322,6 +11321,10 @@ if (document.readyState === 'complete') {
                                       : `<span class="si-ev negative">跳过</span>`;
                     // 风控锁定标记
                     const lockTag = s.riskLocked ? `<span class="si-tag" style="background:rgba(239,68,68,0.15);color:var(--danger);">🛑锁定</span>` : '';
+                    // 对 reason 和 title 进行转义，防止 XSS
+                    const safeReason = this._esc(s.reason || '');
+                    const safeTierName = this._esc(s.signalTierName || '');
+                    const titleStr = `${safeReason} | 胜率${probPct}% Kelly${kellyPct}% 信号${safeTierName} 波动率${(s.volatility||1).toFixed(2)}`;
                     return `<div class="suggest-item">
                         <div class="si-left">
                             <span style="font-size:14px;">${rank}</span>
@@ -11334,7 +11337,7 @@ if (document.readyState === 'complete') {
                             ${lockTag}
                         </div>
                         <div style="display:flex;align-items:center;gap:6px;">
-                            <span class="si-reason" title="${s.reason} | 胜率${probPct}% Kelly${kellyPct}% 信号${s.signalTierName} 波动率${(s.volatility||1).toFixed(2)}">${s.reason}</span>
+                            <span class="si-reason" title="${this._esc(titleStr)}">${safeReason}</span>
                             <span class="si-amount">${s.suggestedAmount}</span>
                         </div>
                     </div>`;
@@ -11345,7 +11348,11 @@ if (document.readyState === 'complete') {
                 const maxPayout = withAmounts.reduce((s,b) => s + b.suggestedAmount * b.odds, 0);
                 const avgEV = (withAmounts.reduce((s,b) => s+b.ev, 0) / withAmounts.length * 100).toFixed(1);
                 const avgRiskAdjEV = (withAmounts.reduce((s,b) => s+(b.evRiskAdjusted||0), 0) / withAmounts.length * 100).toFixed(1);
+                // 转义风险等级字符串
                 const riskLevel = totalStake / effectiveCapital > 0.5 ? '⚠️ 高风险' : totalStake / effectiveCapital > 0.3 ? '⚡ 中风险' : '✅ 低风险';
+                const safeRiskLevel = this._esc(riskLevel);
+                const safeAvgEV = this._esc(avgEV);
+                const safeAvgRiskAdjEV = this._esc(avgRiskAdjEV);
                 // 信号层级统计
                 const tierACount = withAmounts.filter(s => s.signalTier === 'A').length;
                 const tierBCount = withAmounts.filter(s => s.signalTier === 'B').length;
@@ -11357,11 +11364,11 @@ if (document.readyState === 'complete') {
                     summaryEl.innerHTML = `
                         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
                             <span>💰 总下注: <strong style="color:var(--warning);">${totalStake}</strong> / 有效资金 ${effectiveCapital}</span>
-                            <span>${riskLevel}</span>
+                            <span>${safeRiskLevel}</span>
                         </div>
                         <div style="display:flex;justify-content:space-between;">
-                            <span>📈 原始EV: <strong style="color:${avgEV>=0?'var(--success)':'var(--danger)'};">${avgEV>=0?'+':''}${avgEV}%</strong></span>
-                            <span>🛡️ 风险调整EV: <strong style="color:${avgRiskAdjEV>=0?'var(--success)':'var(--danger)'};">${avgRiskAdjEV>=0?'+':''}${avgRiskAdjEV}%</strong></span>
+                            <span>📈 原始EV: <strong style="color:${avgEV>=0?'var(--success)':'var(--danger)'};">${avgEV>=0?'+':''}${safeAvgEV}%</strong></span>
+                            <span>🛡️ 风险调整EV: <strong style="color:${avgRiskAdjEV>=0?'var(--success)':'var(--danger)'};">${avgRiskAdjEV>=0?'+':''}${safeAvgRiskAdjEV}%</strong></span>
                             <span>🏆 最大收益: <strong style="color:var(--success);">+${maxPayout - totalStake}</strong></span>
                         </div>
                         <div style="margin-top:4px;font-size:10px;color:var(--text-muted);">
@@ -12635,7 +12642,7 @@ if (document.readyState === 'complete') {
                         sum: sum,
                         combo: Utils.judgeSizeOdd(sum),
                         opentime: opentime,
-                        opentimeStamp: dateStr
+                        opentimeStamp: Math.floor(ts)  // ✅ 修复：使用 Unix 时间戳（秒）
                     });
                 }
                 this._isMockData = true;  // V3: 标记数据为模拟
