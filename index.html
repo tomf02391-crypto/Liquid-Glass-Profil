@@ -1471,6 +1471,80 @@ body.fouc-hidden { display: none !important; }
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script>
+    // ================================================================
+    // 星轨·自适应引擎 v3 模块（嵌入版）
+    // 数据源：yu28.top 平台AI（杀组/双组）+ 本地动态权重投票
+    // 用法：AlgoV3.predict({hist, aiSha, aiSz}) => {killGroup, predictCombos, source, conf}
+    // ================================================================
+    window.AlgoV3 = (function(){
+        const API = 'https://yu28.top';
+        const KEY = 'yu28_f9f41d673b447fac';
+        const COMBO_MAP = {
+            '小单': ['大单','小双'], '小双': ['大双','小单'],
+            '大单': ['大双','小单'], '大双': ['小双','大单']
+        };
+        const SUB = {
+            freq:   h => mode1(count(h.slice(-20).map(r=>r.combo))),
+            miss:   h => { let t='大单',m=-1; for(const c of ['大单','大双','小单','小双']){let k=0; for(let i=h.length-1;i>=0;i--){if(h[i].combo===c)break;k++} if(k>m){m=k;t=c}} return t; },
+            trend:  h => { const a6=h.slice(-6).reduce((s,r)=>s+r.sum,0)/6, a12=h.slice(-12,-6).reduce((s,r)=>s+r.sum,0)/6; const odd=h.slice(-6).filter(r=>r.combo[1]==='单').length; return (a6>=a12?'大':'小') + (odd>=2?'双':'单'); },
+            markov: h => { const t={}; for(let i=0;i<h.length-1;i++){ (t[h[i].combo]=t[h[i].combo]||{})[h[i+1].combo]=(t[h[i].combo][h[i+1].combo]||0)+1 } const l=h[h.length-1].combo; if(!t[l]) return SUB.freq(h); let b=null,m=0; for(const k in t[l]) if(t[l][k]>m){m=t[l][k];b=k} return b; },
+            opposite: h => { const l=h[h.length-1].combo; return (l[0]==='大'?'小':'大') + (l[1]==='单'?'双':'单'); },
+            streak: h => { let bs=0; for(let i=h.length-1;i>=0;i--){if(h[i].combo[0]==='大')bs++;else break} let ss=0; for(let i=h.length-1;i>=0;i--){if(h[i].combo[0]==='小')ss++;else break} const big = bs>=3?'小':(ss>=3?'大':(h.slice(-10).filter(r=>r.combo[0]==='大').length>=6?'大':'小')); const odd = h.slice(-10).filter(r=>r.combo[1]==='单').length>=6?'双':'单'; return big+odd; }
+        };
+        function count(arr){ const c={}; for(const x of arr) c[x]=(c[x]||0)+1; return c; }
+        function mode1(c){ let b=null,m=0; for(const k in c) if(c[k]>m){m=c[k];b=k} return b; }
+        // 本地动态权重投票
+        function selfVote(hist, win){
+            win = win || 15;
+            const sc={};
+            for(const n in SUB){ let w=0,t=0; for(let i=Math.max(1,hist.length-win);i<hist.length;i++){ try{ if(SUB[n](hist.slice(0,i))===hist[i].combo)w++ }catch(_){} t++ } sc[n]=t?w/t:0; }
+            const v={}; for(const n in SUB){ const c=SUB[n](hist); v[c]=(v[c]||0)+Math.max(0.1,sc[n]); }
+            let best=null,m=0; for(const k in v) if(v[k]>m){m=v[k];best=k}
+            return {combo:best, conf:m};
+        }
+        // 综合决策：平台杀组AI优先，其次双组AI，兜底本地投票
+        function decide(hist, aiSha, aiSz){
+            // 1. 杀组AI：预测"杀掉"的组合 -> 反向推荐押其余组合，直接用它的杀组
+            if (aiSha && aiSha.length) {
+                const last = aiSha[0];
+                if (last && last.predict) {
+                    const kill = last.predict;
+                    return { killGroup: kill, predictCombos: COMBO_MAP[kill] || ['--','--'], source:'平台杀组AI', conf: aiShaRate(aiSha) };
+                }
+            }
+            // 2. 双组AI：二选一 -> 取第一个组合，杀其对立组合
+            if (aiSz && aiSz.length) {
+                const last = aiSz[0];
+                if (last && last.predict) {
+                    const c = last.predict.split(',')[0];
+                    const kill = COMBO_MAP[c] ? COMBO_MAP[c][0] : (c[0]==='大'?'小':'大') + (c[1]==='单'?'双':'单');
+                    return { killGroup: kill, predictCombos: COMBO_MAP[kill] || ['--','--'], source:'平台双组AI', conf: aiSzRate(aiSz) };
+                }
+            }
+            // 3. 本地自适应投票：选最低分组合作为杀组（最不可能开出）
+            const sv = selfVote(hist);
+            let kill = '大单', mn = Infinity;
+            for (const c of ['大单','大双','小单','小双']) {
+                if (c !== sv.combo && sv.conf < mn) { mn = sv.conf; kill = c; }
+            }
+            return { killGroup: kill, predictCombos: COMBO_MAP[kill] || ['--','--'], source:'本地自适应投票', conf: sv.conf };
+        }
+        function aiShaRate(arr){ const a=arr.filter(x=>x.hit!==undefined&&x.hit!==null); return a.length? a.filter(x=>x.hit).length/a.length : 0; }
+        function aiSzRate(arr){ const a=arr.filter(x=>x.hit!==undefined&&x.hit!==null); return a.length? a.filter(x=>x.hit).length/a.length : 0; }
+        async function loadAiData(){
+            const [sha, sz] = await Promise.all([
+                fetch(API+'/api/sha.json?nbr=50', {headers:{'X-Api-Key':KEY}}).then(r=>r.json()).catch(()=>({data:[]})),
+                fetch(API+'/api/sz.json?nbr=50', {headers:{'X-Api-Key':KEY}}).then(r=>r.json()).catch(()=>({data:[]}))
+            ]);
+            window.__algoV3AI = { sha: sha.data||[], sz: sz.data||[] };
+            return window.__algoV3AI;
+        }
+        function getAiCache(){ return window.__algoV3AI || null; }
+        return { decide, selfVote, loadAiData, getAiCache };
+    })();
+    // ================================================================
+    </script>
+    <script>
         // ================================================================
         
 // ===== 全局错误边界增强 =====
@@ -1661,14 +1735,15 @@ if (document.readyState === 'complete') {
         const CONFIG = {
             // GitHub Actions 后台定时抓取的数据文件（即使没人打开页面也在持续更新）
             _GITHUB_DATA: 'data/latest.json',
-            // 实时API：支持CORS，返回完整历史(60条)+countdown
-            _API: 'https://pc28.help/api/kj.json?nbr=60',
+            // 与28开放平台（yu28.top）新接口：HTTPS only，需 X-Api-Key 鉴权
+            _API: 'https://yu28.top/api/kj.json?nbr=60',
+            _API_KEY: 'yu28_f9f41d673b447fac',
             get API_URLS() {
                 const raw = this._API;
                 return [
-                    raw,                                                // 实时API直连最快
-                    'https://proxy.cors.sh/' + raw,                     // 备用1（Cloudflare代理）
-                    'https://api.allorigins.win/raw?url=' + encodeURIComponent(raw),  // 备用2
+                    raw,                                                // 新接口直连（带X-Api-Key头）
+                    'https://api.allorigins.win/raw?url=' + encodeURIComponent(raw),  // 备用1
+                    'https://proxy.cors.sh/' + raw,                     // 备用2（Cloudflare代理）
                 ];
             },
             // GitHub后台数据文件URL（相对路径，同源请求，无CORS问题）
@@ -1677,8 +1752,8 @@ if (document.readyState === 'complete') {
                     this._GITHUB_DATA + '?t=' + Date.now(),  // 加时间戳避免缓存
                 ];
             },
-            // 新API字段映射：nbr=期号, number=号码(+分隔), date+time=时间, num=和值, combination=形态
-            FIELD_MAP: { period: 'nbr', opencode: 'number', opentime: 'time', opentimeDate: 'date' },
+            // 新API字段映射：nbr=期号, number=号码(+分隔), time=开奖时间(北京时间完整串), combination=大小单双
+            FIELD_MAP: { period: 'nbr', opencode: 'number', opentime: 'time', combination: 'combination' },
             ALGORITHM_NAMES: {
                 shuying_v1: '星轨·天璇', shuying_v2: '星轨·天枢', module1: '逆行星', module2: '轨道捕手',
                 module3: '冷热星探', module4: '引力锚点', module5: '超新星爆发', fusion_vote: '星系融合',
@@ -1690,7 +1765,8 @@ if (document.readyState === 'complete') {
                 value_invest: '价值恒星',
                 mean_reversion: '轨道回归',
                 chase_0_27: '极值追星',
-                multi_dim_score: '多维星谱'
+                multi_dim_score: '多维星谱',
+                adaptive_v3: '星轨·自适应v3'
             },
             COMBO_MAP: {
                 '小单': ['大单','小双'], '小双': ['大双','小单'],
@@ -1917,7 +1993,8 @@ if (document.readyState === 'complete') {
             // ===== 阶段四：AI助手 & i18n =====
             AI_ASSISTANT_ENABLED: true,
             I18N_LANGUAGES: { zh: '中文', en: 'English', vi: 'Tiếng Việt' },
-            I18N_DEFAULT_LANG: 'zh',   // ✅ 修复：添加缺失的逗号
+            I18N_DEFAULT_LANG: 'zh',
+        
             ALGORITHM_STALE_THRESHOLD: 5 * 60 * 1000, // 5分钟未更新视为过期
 };
 
@@ -4704,7 +4781,7 @@ if (document.readyState === 'complete') {
                 combos.forEach(c => {
                     let score = 0;
                     for (const fName of factorNames) {
-                        score += factorFns[f](c) * dynWeights[f];
+                        score += factorFns[fName](c) * dynWeights[fName];
                     }
                     rawScores[c] = score;
                 });
@@ -4942,6 +5019,26 @@ if (document.readyState === 'complete') {
                     }
                     case 'multi_dim_score': {
                         rawResult = this.predictMultiDimScore(fullHistoryPrev);
+                        break;
+                    }
+                    case 'adaptive_v3': {
+                        // 星轨·自适应v3：优先平台杀组AI，其次双组AI，兜底本地动态投票
+                        // 平台AI是独立外部信号源，直接返回，不走本地统计交叉验证（避免稀释）
+                        if (window.AlgoV3) {
+                            const hist = fullHistoryPrev.map(h => ({sum:h.sum, combo:h.combo}));
+                            const ai = AlgoV3.getAiCache();
+                            const aiSha = ai ? ai.sha : [];
+                            const aiSz = ai ? ai.sz : [];
+                            const result = AlgoV3.decide(hist, aiSha, aiSz);
+                            return {
+                                killGroup: result.killGroup,
+                                predictCombos: result.predictCombos,
+                                confidence: Math.round((result.conf || 0.5) * 100),
+                                source: result.source,
+                                crossValidation: null
+                            };
+                        }
+                        rawResult = this.shuyingV1(history3);
                         break;
                     }
                     default: rawResult = this.shuyingV1(history3); break;
@@ -8305,7 +8402,7 @@ if (document.readyState === 'complete') {
                             if (e.request.method !== 'GET') return;
                             const url = new URL(e.request.url);
                             // P1优化：API请求和代理请求使用network-first策略，避免返回过期缓存数据
-                            const isApiRequest = url.hostname.includes('pc28.help') || url.hostname.includes('pc28998') || url.hostname.includes('7boe') ||
+                            const isApiRequest = url.hostname.includes('yu28.top') || url.hostname.includes('pc28.help') || url.hostname.includes('pc28998') || url.hostname.includes('7boe') ||
                                 url.hostname.includes('cors.sh') || url.hostname.includes('allorigins') ||
                                 url.hostname.includes('codetabs') || url.hostname.includes('corsproxy') ||
                                 url.hostname.includes('telegram.org') || url.hostname.includes('injahow');
@@ -8848,6 +8945,10 @@ if (document.readyState === 'complete') {
                 } else {
                     setTimeout(startFetch, 50);
                 }
+                // 自适应v3：预取平台AI（杀组/双组）数据，供 adaptive_v3 算法使用
+                if (window.AlgoV3) {
+                    AlgoV3.loadAiData().catch(()=>{});
+                }
                 this.setupVisibilityHandler();
                 this.startBackgroundPolling();  // 启动24秒后台轮询（移植自 Python periodic_check）
                 if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = () => { this.voice.getChineseVoice(); };
@@ -8961,39 +9062,39 @@ if (document.readyState === 'complete') {
                 if (!isBackgroundPoll) this.setStatus('loading');
                 if (!isAutoRetry) this._fetchRetryCount = 0;
                 try {
-                    // ===== 数据获取策略：GitHub后台数据(同源快) → 实时API(直连) → 代理 =====
+                    // ===== 数据获取策略：实时API(带鉴权) → GitHub后台数据(兜底) =====
                     let data = null;
                     let lastErr = null;
 
-                    // 1. 先尝试GitHub后台数据文件（GitHub Actions每5分钟自动更新）
-                    for (const url of CONFIG.GITHUB_DATA_URLS) {
+                    // 1. 优先实时API（与28开放平台，X-Api-Key 鉴权，保证最新数据）
+                    for (const url of CONFIG.API_URLS) {
                         try {
                             const controller = new AbortController();
-                            const timeoutId = setTimeout(() => controller.abort(), 4000);
-                            const resp = await fetch(url, { signal: controller.signal });
+                            const timeoutId = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT);
+                            const resp = await fetch(url, { signal: controller.signal, headers: { 'X-Api-Key': CONFIG._API_KEY } });
                             clearTimeout(timeoutId);
                             if (!resp.ok) throw new Error('HTTP ' + resp.status);
                             const d = await resp.json();
                             if (!d || !Array.isArray(d.data) || d.data.length === 0) throw new Error('数据为空');
                             data = d;
-                            this.currentSource = 'GitHub后台';
+                            this.currentSource = '实时API';
                             break;
                         } catch(e) { lastErr = e; }
                     }
 
-                    // 2. GitHub数据文件不可用时，尝试实时API
+                    // 2. 实时API不可用时，尝试GitHub后台数据文件（GitHub Actions定时更新，可能滞后）
                     if (!data) {
-                        for (const url of CONFIG.API_URLS) {
+                        for (const url of CONFIG.GITHUB_DATA_URLS) {
                             try {
                                 const controller = new AbortController();
-                                const timeoutId = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT);
+                                const timeoutId = setTimeout(() => controller.abort(), 4000);
                                 const resp = await fetch(url, { signal: controller.signal });
                                 clearTimeout(timeoutId);
                                 if (!resp.ok) throw new Error('HTTP ' + resp.status);
                                 const d = await resp.json();
                                 if (!d || !Array.isArray(d.data) || d.data.length === 0) throw new Error('数据为空');
                                 data = d;
-                                this.currentSource = '实时API';
+                                this.currentSource = 'GitHub后台';
                                 break;
                             } catch(e) { lastErr = e; }
                         }
@@ -9012,14 +9113,17 @@ if (document.readyState === 'complete') {
                         .map(item => {
                             let nums = [];
                             const raw = item[fm.opencode];
-                            if (typeof raw === 'string') nums = raw.split(/[+,]/).map(n => parseInt(n.trim(),10)).filter(n => !isNaN(n));
+                            if (typeof raw === 'string') {
+                                // 新接口 number 形如 "4+7+6=17"，先取 "=" 前的号码部分再拆分
+                                const body = raw.split('=')[0];
+                                nums = body.split(/[+,]/).map(n => parseInt(n.trim(),10)).filter(n => !isNaN(n));
+                            }
                             else if (Array.isArray(raw)) nums = raw.map(n => parseInt(n,10)).filter(n => !isNaN(n));
                             const sum = nums.reduce((a,b)=>a+b,0);
-                            const combo = Utils.judgeSizeOdd(sum);
-                            // 新API: date + time 组合为完整时间
-                            const dateStr = item[fm.opentimeDate] || '';
-                            const timeStr = item[fm.opentime] || '';
-                            const opentimeText = dateStr && timeStr ? `${dateStr} ${timeStr}` : timeStr || dateStr;
+                            // 优先使用接口返回的真实 combination，缺失时才本地计算
+                            const combo = item[fm.combination] || Utils.judgeSizeOdd(sum);
+                            // 新API: time 为完整北京时间字符串（如 2026-08-15 00:51:30）
+                            const opentimeText = item[fm.opentime] || '';
                             // 转换为Unix时间戳（秒）
                             let opentimeStamp = 0;
                             if (opentimeText) {
@@ -9065,6 +9169,8 @@ if (document.readyState === 'complete') {
                     this.newPeriodRetryCount = 0;
                     // 新API返回完整历史数据(最多60条)，reverse后变为时间正序(旧→新)
                     this.apiData = formatted.reverse();
+                    // 自适应v3：期号更新时同步刷新平台AI缓存
+                    if (window.AlgoV3) { AlgoV3.loadAiData().catch(()=>{}); }
                     this._isMockData = false;
                     const mb = document.getElementById('mock-banner'); if(mb) mb.style.display='none';
                     this.settleBet();
@@ -11321,10 +11427,6 @@ if (document.readyState === 'complete') {
                                       : `<span class="si-ev negative">跳过</span>`;
                     // 风控锁定标记
                     const lockTag = s.riskLocked ? `<span class="si-tag" style="background:rgba(239,68,68,0.15);color:var(--danger);">🛑锁定</span>` : '';
-                    // 对 reason 和 title 进行转义，防止 XSS
-                    const safeReason = this._esc(s.reason || '');
-                    const safeTierName = this._esc(s.signalTierName || '');
-                    const titleStr = `${safeReason} | 胜率${probPct}% Kelly${kellyPct}% 信号${safeTierName} 波动率${(s.volatility||1).toFixed(2)}`;
                     return `<div class="suggest-item">
                         <div class="si-left">
                             <span style="font-size:14px;">${rank}</span>
@@ -11337,7 +11439,7 @@ if (document.readyState === 'complete') {
                             ${lockTag}
                         </div>
                         <div style="display:flex;align-items:center;gap:6px;">
-                            <span class="si-reason" title="${this._esc(titleStr)}">${safeReason}</span>
+                            <span class="si-reason" title="${s.reason} | 胜率${probPct}% Kelly${kellyPct}% 信号${s.signalTierName} 波动率${(s.volatility||1).toFixed(2)}">${s.reason}</span>
                             <span class="si-amount">${s.suggestedAmount}</span>
                         </div>
                     </div>`;
@@ -11348,11 +11450,7 @@ if (document.readyState === 'complete') {
                 const maxPayout = withAmounts.reduce((s,b) => s + b.suggestedAmount * b.odds, 0);
                 const avgEV = (withAmounts.reduce((s,b) => s+b.ev, 0) / withAmounts.length * 100).toFixed(1);
                 const avgRiskAdjEV = (withAmounts.reduce((s,b) => s+(b.evRiskAdjusted||0), 0) / withAmounts.length * 100).toFixed(1);
-                // 转义风险等级字符串
                 const riskLevel = totalStake / effectiveCapital > 0.5 ? '⚠️ 高风险' : totalStake / effectiveCapital > 0.3 ? '⚡ 中风险' : '✅ 低风险';
-                const safeRiskLevel = this._esc(riskLevel);
-                const safeAvgEV = this._esc(avgEV);
-                const safeAvgRiskAdjEV = this._esc(avgRiskAdjEV);
                 // 信号层级统计
                 const tierACount = withAmounts.filter(s => s.signalTier === 'A').length;
                 const tierBCount = withAmounts.filter(s => s.signalTier === 'B').length;
@@ -11364,11 +11462,11 @@ if (document.readyState === 'complete') {
                     summaryEl.innerHTML = `
                         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
                             <span>💰 总下注: <strong style="color:var(--warning);">${totalStake}</strong> / 有效资金 ${effectiveCapital}</span>
-                            <span>${safeRiskLevel}</span>
+                            <span>${riskLevel}</span>
                         </div>
                         <div style="display:flex;justify-content:space-between;">
-                            <span>📈 原始EV: <strong style="color:${avgEV>=0?'var(--success)':'var(--danger)'};">${avgEV>=0?'+':''}${safeAvgEV}%</strong></span>
-                            <span>🛡️ 风险调整EV: <strong style="color:${avgRiskAdjEV>=0?'var(--success)':'var(--danger)'};">${avgRiskAdjEV>=0?'+':''}${safeAvgRiskAdjEV}%</strong></span>
+                            <span>📈 原始EV: <strong style="color:${avgEV>=0?'var(--success)':'var(--danger)'};">${avgEV>=0?'+':''}${avgEV}%</strong></span>
+                            <span>🛡️ 风险调整EV: <strong style="color:${avgRiskAdjEV>=0?'var(--success)':'var(--danger)'};">${avgRiskAdjEV>=0?'+':''}${avgRiskAdjEV}%</strong></span>
                             <span>🏆 最大收益: <strong style="color:var(--success);">+${maxPayout - totalStake}</strong></span>
                         </div>
                         <div style="margin-top:4px;font-size:10px;color:var(--text-muted);">
@@ -12642,7 +12740,7 @@ if (document.readyState === 'complete') {
                         sum: sum,
                         combo: Utils.judgeSizeOdd(sum),
                         opentime: opentime,
-                        opentimeStamp: Math.floor(ts)  // ✅ 修复：使用 Unix 时间戳（秒）
+                        opentimeStamp: dateStr
                     });
                 }
                 this._isMockData = true;  // V3: 标记数据为模拟
