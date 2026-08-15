@@ -333,9 +333,13 @@ body.fouc-hidden { display: none !important; }
         .algo-body.open { max-height:2000px; padding:0 18px 18px; }
         .algo-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
         @media (max-width:640px) { .algo-grid { grid-template-columns:repeat(2,1fr); } }
-        .algo-item { padding:12px 12px; border-radius:var(--radius-sm); border:1px solid var(--border-glass); background:var(--bg-glass); backdrop-filter:var(--glass-blur-light); -webkit-backdrop-filter:var(--glass-blur-light); transition:var(--transition); }
+        .algo-item { padding:12px 12px; border-radius:var(--radius-sm); border:1px solid var(--border-glass); background:var(--bg-glass); backdrop-filter:var(--glass-blur-light); -webkit-backdrop-filter:var(--glass-blur-light); transition:var(--transition); cursor:pointer; }
         .algo-item:active { transform:scale(0.97); }
+        .algo-item.active { border:1px solid var(--success); background:rgba(52,211,153,0.08); box-shadow:0 0 14px rgba(52,211,153,0.25); }
+        .algo-item .algo-item-cur { display:none; font-size:9px; color:var(--success); font-weight:700; margin-top:3px; }
+        .algo-item.active .algo-item-cur { display:block; }
         .algo-item.fusion { border:1px solid var(--accent); background:var(--accent-weak); }
+        .algo-item.fusion.active { border:1px solid var(--success); box-shadow:0 0 14px rgba(52,211,153,0.25); }
         .algo-item-name { font-size:12px; font-weight:700; margin-bottom:2px; color:var(--text-primary); }
         .algo-item-pred { font-size:11px; color:var(--text-secondary); }
         .algo-item-pred .p-red { color:var(--success); font-weight:700; }
@@ -1313,24 +1317,6 @@ body.fouc-hidden { display: none !important; }
                 <button class="btn" id="telegram-btn" onclick="app.toggleTelegramPush()" title="Telegram机器人播报设置">📤 TG播报</button>
             </div>
             <div class="controls-group">
-                <span class="controls-label">🧠 算法</span>
-                <div class="select-wrap"><select id="algorithm-select" onchange="app.changeAlgorithm()">
-                    <option value="meta_ensemble_pro" selected>星云融合Pro(推荐)</option>
-                    <option value="shuying_v1">星轨·天璇</option><option value="shuying_v2">星轨·天枢</option>
-                    <option value="module1">逆行星</option><option value="module2">轨道捕手</option>
-                    <option value="module3">冷热星探</option><option value="module4">引力锚点</option>
-                    <option value="module5">超新星爆发</option><option value="fusion_vote">星系融合</option>
-                    <option value="jingpai">北辰派</option><option value="fengpai">流星派</option>
-                    <option value="tongpai">银河派</option><option value="qisha">奇点杀</option>
-                    <option value="yisha">异轨杀</option><option value="shisha">势能杀</option>
-                    <option value="modchain">星链法</option><option value="wuji">无垠算法</option>
-                    <option value="double_group">双子星预测</option>
-                    <option value="meta_ensemble">星云融合</option>
-                    <option value="value_invest">价值恒星</option>
-                    <option value="mean_reversion">轨道回归</option>
-                    <option value="chase_0_27">🔥 极值追星</option>
-                    <option value="multi_dim_score">📊 多维星谱</option>
-                </select></div>
                 <button class="btn" onclick="app.exportCSV()">📥 导出</button>
             </div>
         </div>
@@ -1446,7 +1432,7 @@ body.fouc-hidden { display: none !important; }
     <div class="newui-view" id="newui-view">
         <div class="newui-header"><div class="newui-header-title">Orbit<span>星轨引擎</span></div><div style="display:flex;align-items:center;gap:10px;"><div class="newui-badge" id="newui-status">加载中</div><button class="newui-close-btn" onclick="app.toggleNewUI()" title="返回经典视图">✕</button></div></div>
         <div class="newui-page active" id="newui-page-predict">
-            <div class="newui-card"><div class="newui-card-header"><div class="newui-card-title"><span class="icon">🎯</span>当前算法</div></div><div class="newui-algo-selector" id="newui-algo-selector"></div></div>
+            <div class="newui-card"><div class="newui-card-header"><div class="newui-card-title"><span class="icon">🎯</span>当前算法</div><div class="newui-card-sub" id="newui-cur-algo-name">--</div></div><div class="newui-pred-main"><div class="newui-pred-algo" style="padding:12px 0;">当前预测算法：<span class="current" id="newui-pred-algo-name2">--</span></div></div></div>
             <div class="newui-card"><div class="newui-card-header"><div class="newui-card-title"><span class="icon">🎲</span>最新开奖</div><div class="newui-card-sub" id="newui-latest-period">--</div></div><div class="newui-stats-row"><div class="newui-stat-item"><div class="newui-stat-val" id="newui-latest-nums">--</div><div class="newui-stat-lab">开奖号码</div></div><div class="newui-stat-item"><div class="newui-stat-val" id="newui-latest-sum">--</div><div class="newui-stat-lab">和值</div></div><div class="newui-stat-item"><div class="newui-stat-val" id="newui-latest-combo">--</div><div class="newui-stat-lab">形态</div></div></div></div>
             <div class="newui-card"><div class="newui-card-header"><div class="newui-card-title"><span class="icon">🪐</span>下期预测</div><div class="newui-card-sub" id="newui-next-period">--</div></div><div class="newui-pred-main" id="newui-prediction-area"><div class="newui-pred-algo">使用算法：<span class="current" id="newui-pred-algo-name">--</span></div><div class="newui-pred-kill" id="newui-pred-kill">--</div><div class="newui-pred-combos" id="newui-pred-combos"></div><div class="newui-pred-conf" id="newui-pred-conf"></div></div></div>
             <div class="newui-card"><div class="newui-card-header"><div class="newui-card-title"><span class="icon">📈</span>和值走势 <span style="font-size:10px;color:var(--text-muted);font-weight:400;">K线风格</span></div><div class="stock-period-selector"><button class="stock-period-btn active" data-period="30" onclick="app.setStockChartPeriod(30)">30期</button><button class="stock-period-btn" data-period="50" onclick="app.setStockChartPeriod(50)">50期</button><button class="stock-period-btn" data-period="100" onclick="app.setStockChartPeriod(100)">100期</button><button class="stock-period-btn" data-period="all" onclick="app.setStockChartPeriod('all')">全部</button></div></div><div class="stock-chart-info" id="stock-chart-info-newui" style="padding:0 12px 6px;"></div><div style="position:relative;width:100%;height:clamp(220px,36vw,320px);padding:4px;"><canvas id="stock-chart-canvas-newui"></canvas><div class="stock-tooltip" id="stock-tooltip-newui"></div></div><div class="stock-chart-legend"><div class="stock-legend-item"><span class="stock-legend-dot" style="background:#f59e0b"></span>和值</div><div class="stock-legend-item"><span class="stock-legend-dot" style="background:#fbbf24"></span>MA5</div><div class="stock-legend-item"><span class="stock-legend-dot" style="background:#a78bfa"></span>MA10</div><div class="stock-legend-item"><span class="stock-legend-dot" style="background:#60a5fa"></span>MA20</div><div class="stock-legend-item"><span class="stock-legend-dot" style="background:#34d399"></span>命中</div><div class="stock-legend-item"><span class="stock-legend-dot" style="background:#ef4444"></span>未中</div></div></div>
@@ -1458,7 +1444,6 @@ body.fouc-hidden { display: none !important; }
             <div class="newui-card"><div class="newui-card-header"><div class="newui-card-title"><span class="icon">🔁</span>回测模拟</div></div><div class="newui-bt-controls"><select id="newui-bt-algo"><option value="">选择算法</option></select><input type="number" id="newui-bt-count" value="30" min="5" max="100" placeholder="期数"><button class="newui-bt-btn" id="newui-btn-run-bt" onclick="app.runNewUIBacktest()">开始回测</button></div><div class="newui-bt-summary" id="newui-bt-summary" style="display:none;"><div class="newui-bt-sum-item"><div class="val" id="newui-bt-total">0</div><div class="lab">总期数</div></div><div class="newui-bt-sum-item"><div class="val" id="newui-bt-win">0</div><div class="lab">命中</div></div><div class="newui-bt-sum-item"><div class="val" id="newui-bt-rate">0%</div><div class="lab">胜率</div></div></div><div style="overflow-x:auto;"><table class="newui-data-table" id="newui-bt-table"><thead><tr><th>期号</th><th>号码</th><th>和</th><th>形态</th><th>杀组</th><th>结果</th></tr></thead><tbody></tbody></table></div></div>
         </div>
         <div class="newui-page" id="newui-page-algorithms">
-            <div class="newui-card"><div class="newui-card-header"><div class="newui-card-title"><span class="icon">⚙️</span>算法列表</div><div class="newui-card-sub">点击切换当前预测算法</div></div><div id="newui-algo-list"></div></div>
             <div class="newui-card"><div class="newui-card-header"><div class="newui-card-title"><span class="icon">📊</span>算法统计</div></div><div style="overflow-x:auto;"><table class="newui-data-table" id="newui-stats-table"><thead><tr><th>算法</th><th>总期</th><th>命中</th><th>胜率</th><th>连中</th></tr></thead><tbody></tbody></table></div></div>
         </div>
         <div class="newui-nav">
@@ -12016,7 +12001,8 @@ if (document.readyState === 'complete') {
                     }
                     const stats = this.algorithmStats[alg] || { winRate: 97, currentConsecutive: 0, total: 0, win: 0, recent10Rate: 97, recent5Rate: 97, stability: 95, maxConsecutive: 0 };
                     const isFusion = alg === 'fusion_vote';
-                    const cls = isFusion ? 'algo-item fusion' : 'algo-item';
+                    const isActive = alg === this.currentAlgorithm;
+                    const cls = (isFusion ? 'algo-item fusion' : 'algo-item') + (isActive ? ' active' : '');
                     // V3: 自适应权重显示
                     const v3Weight = this.adaptiveWeightEngine?.algoWeights?.[alg] || 1.0;
                     const v3EMA = this.adaptiveWeightEngine?.algoEMA?.[alg] || 0.5;
@@ -12047,10 +12033,11 @@ if (document.readyState === 'complete') {
                             <div style="width:${conBarWidth}%;height:100%;background:${conColor};border-radius:2px;transition:width 0.5s ease;"></div>
                         </div>
                     </div>`;
-                    html += `<div class="${cls}">
+                    html += `<div class="${cls}" onclick="app.changeAlgorithm('${alg}')">
                         <div class="algo-item-name">${CONFIG.ALGORITHM_NAMES[alg]} ${rankBadge}</div>
                         <div class="algo-item-pred">推荐 <span class="p-red">${pred.predictCombos.join('+')}</span> · 杀 <span class="p-kill">${pred.killGroup}</span></div>
                         <div class="algo-item-stats"><span>胜率 <span class="win">${stats.winRate.toFixed(1)}%</span></span><span>近10 <span class="win">${stats.recent10Rate.toFixed(1)}%</span></span></div>
+                        <div class="algo-item-cur">✓ 当前使用</div>
                         ${conBar}
                         ${weightBar}
                     </div>`;
@@ -13530,12 +13517,14 @@ if (document.readyState === 'complete') {
                 `;
             }
 
-            changeAlgorithm() {
-                this.currentAlgorithm = this.dom.algorithmSelect.value;
+            changeAlgorithm(alg) {
+                this.currentAlgorithm = alg || (this.dom.algorithmSelect && this.dom.algorithmSelect.value) || this.currentAlgorithm;
                 this.render();
                 this.savePreferences();
                 this.showToast('已切换至 ' + CONFIG.ALGORITHM_NAMES[this.currentAlgorithm], 'info');
                 this.updateBacktestAlgLabel();
+                // 同屏对比面板保持展开时，刷新高亮
+                if (this.algoCompareOpen && this.apiData.length >= 1) this.renderAlgoCompare();
                 if (this.dom.backtestTableWrap && this.dom.backtestTableWrap.classList.contains('show')) this.runBacktest();
             }
             toggleAlgoCompare() {
@@ -14140,37 +14129,8 @@ ${md.groupLabel}
             initNewUI() {
                 if (this._newUIInited) return;
                 this._newUIInited = true;
-                const sel = document.getElementById('newui-algo-selector');
-                sel.innerHTML = '';
-                for (const key in CONFIG.ALGORITHM_NAMES) {
-                    const chip = document.createElement('div');
-                    chip.className = 'newui-algo-chip' + (key === this.currentAlgorithm ? ' active' : '');
-                    chip.textContent = CONFIG.ALGORITHM_NAMES[key];
-                    chip.addEventListener('click', (k => () => {
-                        this.currentAlgorithm = k;
-                        this.savePreferences();
-                        this.renderPrediction();
-                        this.renderNewUI();
-                        this.showToast('已切换至 ' + CONFIG.ALGORITHM_NAMES[k], 'success');
-                    })(key));
-                    sel.appendChild(chip);
-                }
-                const list = document.getElementById('newui-algo-list');
-                list.innerHTML = '';
-                for (const key in CONFIG.ALGORITHM_NAMES) {
-                    const item = document.createElement('div');
-                    item.className = 'newui-algo-list-item' + (key === this.currentAlgorithm ? ' active' : '');
-                    item.innerHTML = '<div class="name">' + CONFIG.ALGORITHM_NAMES[key] + '</div><div class="key">' + key + '</div>';
-                    item.addEventListener('click', (k => () => {
-                        this.currentAlgorithm = k;
-                        this.savePreferences();
-                        this.renderPrediction();
-                        this.renderNewUI();
-                        this.showToast('已切换至 ' + CONFIG.ALGORITHM_NAMES[k], 'success');
-                        this.switchNewUIPage('predict');
-                    })(key));
-                    list.appendChild(item);
-                }
+                const curName = document.getElementById('newui-cur-algo-name');
+                if (curName) curName.textContent = CONFIG.ALGORITHM_NAMES[this.currentAlgorithm];
                 const btSel = document.getElementById('newui-bt-algo');
                 btSel.innerHTML = '<option value="">选择算法</option>';
                 for (const key in CONFIG.ALGORITHM_NAMES) {
@@ -14183,18 +14143,10 @@ ${md.groupLabel}
             }
             renderNewUI() {
                 if (!document.getElementById('newui-view').classList.contains('active')) return;
-                document.querySelectorAll('#newui-algo-selector .newui-algo-chip').forEach(chip => {
-                    const name = chip.textContent;
-                    let key = null;
-                    for (const k in CONFIG.ALGORITHM_NAMES) if (CONFIG.ALGORITHM_NAMES[k] === name) { key = k; break; }
-                    chip.classList.toggle('active', key === this.currentAlgorithm);
-                });
-                document.querySelectorAll('#newui-algo-list .newui-algo-list-item').forEach(item => {
-                    const name = item.querySelector('.name').textContent;
-                    let key = null;
-                    for (const k in CONFIG.ALGORITHM_NAMES) if (CONFIG.ALGORITHM_NAMES[k] === name) { key = k; break; }
-                    item.classList.toggle('active', key === this.currentAlgorithm);
-                });
+                const curName = document.getElementById('newui-cur-algo-name');
+                if (curName) curName.textContent = CONFIG.ALGORITHM_NAMES[this.currentAlgorithm];
+                const predName = document.getElementById('newui-pred-algo-name2');
+                if (predName) predName.textContent = CONFIG.ALGORITHM_NAMES[this.currentAlgorithm];
                 if (this.apiData.length) {
                     const latest = this.apiData[this.apiData.length-1];
                     document.getElementById('newui-latest-period').textContent = '第' + latest.period + '期';
