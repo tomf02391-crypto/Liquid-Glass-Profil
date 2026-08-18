@@ -89,15 +89,13 @@ def fetch_keno_data(url: str) -> list:
                     nums = [int(x) for x in num_str.split(",")]
 
             if not nums or len(nums) < 20:
-                # 号码不够20个，跳过或尝试从number反推
+                # 号码不够20个，尝试从number反推
                 number_str = item.get("number") or ""
                 if "+" in str(number_str):
-                    # 只有三球
                     parts = str(number_str).split("+")
                     if len(parts) == 3:
                         b1, b2, b3 = int(parts[0]), int(parts[1]), int(parts[2])
                         s = b1 + b2 + b3
-                        combo = BCLCCalc.decompose_sum(s)
                         results.append({
                             "nbr": nbr,
                             "date": item.get("date") or "",
@@ -105,7 +103,7 @@ def fetch_keno_data(url: str) -> list:
                             "b1": b1, "b2": b2, "b3": b3,
                             "sum": s,
                             "combination": item.get("combination") or BCLCCalc._combo_of(s),
-                            "raw_nums": [],
+                            "nbrs": [],
                         })
                 continue
 
@@ -117,7 +115,6 @@ def fetch_keno_data(url: str) -> list:
             balls = BCLCCalc.calc_balls(sorted_nums)
             s = balls["sum"]
 
-            # 组合判断
             combo = item.get("combination") or BCLCCalc._combo_of(s)
 
             results.append({
@@ -129,7 +126,7 @@ def fetch_keno_data(url: str) -> list:
                 "b3": balls["b3"],
                 "sum": s,
                 "combination": combo,
-                "raw_nums": sorted_nums,
+                "nbrs": sorted_nums,
             })
 
         except Exception as e:
@@ -172,8 +169,8 @@ def build_output(data: list) -> dict:
     m, s = divmod(cd, 60)
     cd_str = f"{m}:{s:02d}"
 
-    # 按期号排序(升序)
-    data.sort(key=lambda x: x["nbr"])
+    # 按期号升序排列（最旧的在前，最新的在最后）
+    data.sort(key=lambda x: int(x["nbr"]))
 
     return {
         "countdown": cd_str,
@@ -197,7 +194,7 @@ def build_output(data: list) -> dict:
                 "b1": d["b1"],
                 "b2": d["b2"],
                 "b3": d["b3"],
-                "raw_nums": d.get("raw_nums", []),
+                "nbrs": d.get("nbrs", []),
             }
             for d in data
         ],
@@ -224,10 +221,9 @@ def main():
             return 0
         else:
             print("  [ERR] 无旧数据可保留", flush=True)
-            # 写入空数据避免报错
             OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
             with open(OUTPUT_FILE, "w") as f:
-                json.dump({"message": "no_data", "data": []}, f)
+                json.dump({"message": "no_data", "count": 0, "data": []}, f)
             return 1
 
     # 2. 构建输出
