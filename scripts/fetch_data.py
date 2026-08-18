@@ -1,135 +1,207 @@
 #!/usr/bin/env python3
 """
-Orbit星轨引擎 · 后台数据抓取脚本（BCLC 原始规则版）
-========================================================
-数据链路：
-  BCLC Keno 官方开奖(20个号码) → pc28.help/api/keno.json → 本脚本
-  → 用 BCLC 官方规则算出三球 → 写入 data/latest.json
+fetch_data.py — Liquid-Glass-Profil 数据仓库
+==========================================
+职责: 定时从 BCLC Keno 数据源获取20个原始号码，
+      按官方规则计算三球(b1/b2/b3)和特码(sum)，
+      写入 data/latest.json 供其他仓库读取。
 
-计算规则（加拿大PC28官方算法）：
-  20个号码升序排列后：
-  - b1 = (第2+5+8+11+14+17位 之和) % 10
-  - b2 = (第3+6+9+12+15+18位 之和) % 10
-  - b3 = (第4+7+10+13+16+19位 之和) % 10
-  - sum = b1 + b2 + b3
+BCLC官方规则:
+  20个号码从小到大排序后:
+  b1 = (第2+5+8+11+14+17位) % 10
+  b2 = (第3+6+9+12+15+18位) % 10
+  b3 = (第4+7+10+13+16+19位) % 10
+  sum = b1 + b2 + b3
 
-由 GitHub Actions 定时调用（每3.5分钟），即使没人打开网页数据也持续更新。
+由 GitHub Actions 每5分钟触发一次。
 """
 import json
 import time
 import sys
+import os
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
 
-# 允许直接运行和作为模块导入
+# 导入同目录的 bclc_calc 模块
 sys.path.insert(0, str(Path(__file__).parent))
-from bclc_calc import calc_pc28, calc_from_keno_list
+from bclc_calc import BCLCCalc
 
 # ============================================================
 # 配置
 # ============================================================
-# 首选：pc28.help 的 keno 接口（返回20个原始号码）
-KENO_API = "https://pc28.help/api/keno.json?nbr=60"
-# 备用：pgsoft 的 keno 数据
-BACKUP_API = "http://api.pgsoft.one/api/28/keno?limit=60"
+# Keno 原始数据接口（返回20个号码）
+KENO_SOURCES = [
+    "https://pc28.help/api/keno.json?nbr=60",
+    "https://yu28.top/api/bclc?count=60&key=yu28-f9f41d673b447fac",
+]
 
-OUTPUT_FILE = Path(__file__).parent.parent / "data" / "latest.json"
+# 输出路径
+OUTPUT_DIR = Path(__file__).parent.parent / "data"
+OUTPUT_FILE = OUTPUT_DIR / "latest.json"
 
-# 北京时间
-BJT = timezone(timedelta(hours=8))
+# 重试配置
+MAX_RETRIES = 3
+RETRY_DELAY = 3
+TIMEOUT = 10
 
 # ============================================================
-# 抓取
+# 数据获取
 # ============================================================
-def _fetch_url(url: str, headers: dict = None) -> dict:
-    """用 urllib 抓取 JSON，返回 dict"""
+def fetch_keno_data(url: str) -> list:
+    """从单个URL获取并解析Keno数据"""
     import urllib.request
     import urllib.error
 
     req = urllib.request.Request(
         url,
-        headers=headers or {"User-Agent": "Orbit-Engine-Bot/2.0 (BCLC-Rule)"}
+        headers={
+            "User-Agent": "LiquidGlass-Profil/2.0",
+            "Accept": "application/json",
+        }
     )
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        raw = json.loads(resp.read().decode("utf-8"))
 
+    # 解析各种格式
+    items = raw.get("data") or raw.get("list") or raw.get("results") or []
+    if not items and isinstance(raw, list):
+        items = raw
 
-def fetch_keno_data() -> dict:
-    """从 pc28.help 抓取 Keno 原始数据，带重试"""
-    last_err = None
-    for attempt in range(3):
+    results = []
+    for item in items:
         try:
-            print(f"  [尝试 {attempt+1}/3] GET {KENO_API}")
-            data = _fetch_url(KENO_API)
-            if data and isinstance(data.get("data"), list) and len(data["data"]) > 0:
-                print(f"  ✅ 成功获取 {len(data['data'])} 条 Keno 原始数据")
-                return data
-            else:
-                print(f"  ⚠ 数据为空或格式异常: {str(data)[:100]}")
-                last_err = "empty data"
-        except Exception as e:
-            last_err = str(e)
-            print(f"  ❌ 失败: {e}")
-        if attempt < 2:
-            time.sleep(3)
-    raise RuntimeError(f"所有重试失败: {last_err}")
-
-
-# ============================================================
-# 解析 + 计算
-# ============================================================
-def parse_keno_to_pc28(keno_json: dict) -> dict:
-    """
-    将 keno 原始数据按 BCLC 规则转换为 PC28 三球格式
-    输入：{"data": [{"nbr": "...", "nbrs": [...20个号码...], ...}, ...]}
-    输出：与现有 latest.json 格式完全兼容的 dict
-    """
-    raw_list = keno_json.get("data", [])
-    converted = []
-
-    for item in raw_list:
-        try:
-            # 提取20个原始号码
-            nbrs = item.get("nbrs") or item.get("numbers") or item.get("nums")
-            if not nbrs:
-                continue
-            # 统一转为 int 列表
-            if isinstance(nbrs, str):
-                nbrs = [int(x.strip()) for x in nbrs.replace("+", ",").split(",") if x.strip().isdigit()]
-            nbrs = sorted(int(x) for x in nbrs)
-
-            if len(nbrs) != 20:
-                print(f"  ⚠ 期号 {item.get('nbr','?')} 号码数={len(nbrs)}，跳过")
+            nbr = str(item.get("nbr") or item.get("issue") or item.get("period") or "")
+            if not nbr:
                 continue
 
-            # 用 BCLC 规则计算三球
-            calc = calc_pc28(nbrs)
+            # 获取20个号码
+            nums = (
+                item.get("nums") or
+                item.get("numbers") or
+                item.get("raw") or
+                item.get("rawNums") or
+                item.get("nbrs")
+            )
 
-            converted.append({
-                "nbr": str(item.get("nbr") or item.get("period") or item.get("issue") or ""),
-                "date": str(item.get("date") or ""),
-                "time": str(item.get("time") or item.get("opentime") or ""),
-                "number": calc["number"],       # "8+8+4"
-                "num": calc["num"],             # "20"
-                "combination": calc["combination"],  # "大双"
-                "nbrs": nbrs,                  # 保留20个原始号码
+            # 尝试从字符串解析
+            if not nums:
+                num_str = item.get("num") or item.get("numbers_str") or ""
+                if isinstance(num_str, str) and "," in num_str:
+                    nums = [int(x) for x in num_str.split(",")]
+
+            if not nums or len(nums) < 20:
+                # 号码不够20个，跳过或尝试从number反推
+                number_str = item.get("number") or ""
+                if "+" in str(number_str):
+                    # 只有三球
+                    parts = str(number_str).split("+")
+                    if len(parts) == 3:
+                        b1, b2, b3 = int(parts[0]), int(parts[1]), int(parts[2])
+                        s = b1 + b2 + b3
+                        combo = BCLCCalc.decompose_sum(s)
+                        results.append({
+                            "nbr": nbr,
+                            "date": item.get("date") or "",
+                            "time": item.get("time") or "",
+                            "b1": b1, "b2": b2, "b3": b3,
+                            "sum": s,
+                            "combination": item.get("combination") or BCLCCalc._combo_of(s),
+                            "raw_nums": [],
+                        })
+                continue
+
+            # 转换为整数并排序
+            nums = [int(x) for x in nums[:20]]
+            sorted_nums = sorted(nums)
+
+            # 用BCLC官方规则计算
+            balls = BCLCCalc.calc_balls(sorted_nums)
+            s = balls["sum"]
+
+            # 组合判断
+            combo = item.get("combination") or BCLCCalc._combo_of(s)
+
+            results.append({
+                "nbr": nbr,
+                "date": item.get("date") or "",
+                "time": item.get("time") or "",
+                "b1": balls["b1"],
+                "b2": balls["b2"],
+                "b3": balls["b3"],
+                "sum": s,
+                "combination": combo,
+                "raw_nums": sorted_nums,
             })
+
         except Exception as e:
-            print(f"  ⚠ 解析一期失败: {e}")
+            print(f"  [WARN] 解析条目失败: {e}")
             continue
 
-    if not converted:
-        raise RuntimeError("没有成功解析出任何一期数据")
+    return results
 
-    # 组装输出（与现有 latest.json 格式兼容）
-    now_bjt = datetime.now(BJT).strftime("%Y-%m-%d %H:%M:%S")
+
+def fetch_with_retry() -> list:
+    """遍历所有数据源，带重试"""
+    for url in KENO_SOURCES:
+        for attempt in range(MAX_RETRIES):
+            try:
+                print(f"  [FETCH] 尝试: {url} (第{attempt+1}次)")
+                data = fetch_keno_data(url)
+                if data:
+                    print(f"  [OK] 获取 {len(data)} 条有效数据")
+                    return data
+                else:
+                    print(f"  [WARN] 返回空数据")
+            except Exception as e:
+                print(f"  [ERR] {e}")
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(RETRY_DELAY)
+
+    return []
+
+
+# ============================================================
+# 输出构建
+# ============================================================
+def build_output(data: list) -> dict:
+    """构建标准输出JSON"""
+    bjt = BCLCCalc.now_bjt()
+    per, cd, next_draw, seq, sess_start = BCLCCalc.period_info(bjt)
+    is_dst = BCLCCalc.is_dst(bjt.astimezone(__import__('datetime').timezone.utc))
+    tz_name = "PDT" if is_dst else "PST"
+
+    m, s = divmod(cd, 60)
+    cd_str = f"{m}:{s:02d}"
+
+    # 按期号排序(升序)
+    data.sort(key=lambda x: x["nbr"])
+
     return {
-        "countdown": keno_json.get("countdown", "03:30"),
-        "data": converted,
-        "message": "success",
+        "countdown": cd_str,
+        "current_period": per,
+        "next_draw": next_draw.strftime("%Y-%m-%d %H:%M:%S"),
+        "is_open": BCLCCalc.is_open(bjt),
+        "timezone": tz_name,
+        "source": "BCLC Keno 官方规则 · Liquid-Glass-Profil",
+        "rule": "b1=(pos2+5+8+11+14+17)%10, b2=(pos3+6+9+12+15+18)%10, b3=(pos4+7+10+13+16+19)%10",
         "updated": int(time.time()),
-        "fetched_at": now_bjt,
-        "rule": "BCLC-official",  # 标记使用官方规则
+        "fetched_at": bjt.strftime("%Y-%m-%d %H:%M:%S"),
+        "count": len(data),
+        "data": [
+            {
+                "nbr": d["nbr"],
+                "date": d.get("date", ""),
+                "time": d.get("time", ""),
+                "number": f"{d['b1']}+{d['b2']}+{d['b3']}",
+                "num": d["sum"],
+                "combination": d.get("combination", ""),
+                "b1": d["b1"],
+                "b2": d["b2"],
+                "b3": d["b3"],
+                "raw_nums": d.get("raw_nums", []),
+            }
+            for d in data
+        ],
+        "message": "success" if data else "no_data",
     }
 
 
@@ -137,35 +209,43 @@ def parse_keno_to_pc28(keno_json: dict) -> dict:
 # 主流程
 # ============================================================
 def main():
-    print("=" * 55)
-    print("  Orbit星轨引擎 · BCLC 官方规则数据抓取")
-    print("=" * 55)
+    print("=" * 60, flush=True)
+    print("  Liquid-Glass-Profil · BCLC 官方规则数据采集", flush=True)
+    print(f"  时间: {BCLCCalc.now_bjt().strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
+    print("=" * 60, flush=True)
 
-    # 1. 抓取 Keno 原始数据
-    print("\n📡 步骤1: 抓取 Keno 20个原始号码...")
-    try:
-        keno_json = fetch_keno_data()
-    except Exception as e:
-        print(f"\n❌ 抓取失败: {e}")
-        print("   保留旧数据，退出码0（避免Actions报错）")
-        sys.exit(0)
+    # 1. 获取原始数据
+    data = fetch_with_retry()
 
-    # 2. 用 BCLC 规则计算三球
-    print("\n🧮 步骤2: 用 BCLC 官方规则计算三球...")
-    result = parse_keno_to_pc28(keno_json)
-    print(f"  ✅ 成功转换 {len(result['data'])} 期")
-    latest = result["data"][0]
-    print(f"  最新一期: 期号={latest['nbr']} 号码={latest['number']} 和值={latest['num']} 形态={latest['combination']}")
+    if not data:
+        print("\n  [WARN] 所有数据源失败，保留旧数据", flush=True)
+        if OUTPUT_FILE.exists():
+            print(f"  [KEEP] 旧文件保留: {OUTPUT_FILE}", flush=True)
+            return 0
+        else:
+            print("  [ERR] 无旧数据可保留", flush=True)
+            # 写入空数据避免报错
+            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+            with open(OUTPUT_FILE, "w") as f:
+                json.dump({"message": "no_data", "data": []}, f)
+            return 1
+
+    # 2. 构建输出
+    output = build_output(data)
 
     # 3. 写入文件
-    print(f"\n💾 步骤3: 写入 {OUTPUT_FILE}...")
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(result, f, ensure_ascii=False, separators=(",", ":"))
+        json.dump(output, f, ensure_ascii=False, separators=(",", ":"))
 
-    print(f"  ✅ 写入完成")
-    print(f"\n🎉 全部完成！规则=BCLC-official, 数据量={len(result['data'])}期")
+    size = OUTPUT_FILE.stat().st_size
+    latest = data[-1] if data else None
+    print(f"\n  ✅ 写入: {OUTPUT_FILE} ({size} bytes)", flush=True)
+    if latest:
+        print(f"  ✅ 最新: 期{latest['nbr']} {latest['b1']}+{latest['b2']}+{latest['b3']}={latest['sum']} {latest.get('combination','')}", flush=True)
+    print(f"  ✅ 共 {len(data)} 期 | 倒计时: {output['countdown']}", flush=True)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
