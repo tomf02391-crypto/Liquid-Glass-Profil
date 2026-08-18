@@ -1455,10 +1455,11 @@ body.fouc-hidden { display: none !important; }
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="pc28_standard_api.js"></script>
     <script>
     // ================================================================
     // 星轨·自适应引擎 v3 模块（嵌入版）
-    // 数据源：yu28.top 平台AI（杀组/双组）+ 本地动态权重投票
+    // 数据源已统一为 pc28.standard_api 模块（多源自动降级）
     // 用法：AlgoV3.predict({hist, aiSha, aiSz}) => {killGroup, predictCombos, source, conf}
     // ================================================================
     window.AlgoV3 = (function(){
@@ -1517,6 +1518,18 @@ body.fouc-hidden { display: none !important; }
         function aiShaRate(arr){ const a=arr.filter(x=>x.hit!==undefined&&x.hit!==null); return a.length? a.filter(x=>x.hit).length/a.length : 0; }
         function aiSzRate(arr){ const a=arr.filter(x=>x.hit!==undefined&&x.hit!==null); return a.length? a.filter(x=>x.hit).length/a.length : 0; }
         async function loadAiData(){
+            // 优先使用统一API模块
+            if (window.pc28) {
+                try {
+                    const [sha, sz] = await Promise.all([
+                        pc28.getKillGroup().catch(()=>({data:[]})),
+                        pc28.getDoubleGroup().catch(()=>({data:[]}))
+                    ]);
+                    window.__algoV3AI = { sha: sha.data||[], sz: sz.data||[] };
+                    return window.__algoV3AI;
+                } catch(e) { console.warn('[统一API] loadAiData失败:', e.message); }
+            }
+            // 降级原接口
             const [sha, sz] = await Promise.all([
                 fetch(API+'/api/sha.json?nbr=50', {headers:{'X-Api-Key':KEY}}).then(r=>r.json()).catch(()=>({data:[]})),
                 fetch(API+'/api/sz.json?nbr=50', {headers:{'X-Api-Key':KEY}}).then(r=>r.json()).catch(()=>({data:[]}))
