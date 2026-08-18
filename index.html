@@ -1455,12 +1455,12 @@ body.fouc-hidden { display: none !important; }
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="pc28_standard_api.js"></script>
     <script src="bclc_calc.js"></script>
     <script>
     // ================================================================
     // 星轨·自适应引擎 v3 模块（嵌入版）
-    // 数据源已统一为 pc28.standard_api 模块（多源自动降级）
+    // 数据源: Liquid-Glass-Profil 数据仓库（BCLC官方规则计算）
+    // 规则: b1=(pos2+5+8+11+14+17)%10, b2=(pos3+6+9+12+15+18)%10, b3=(pos4+7+10+13+16+19)%10
     // 用法：AlgoV3.predict({hist, aiSha, aiSz}) => {killGroup, predictCombos, source, conf}
     // ================================================================
     window.AlgoV3 = (function(){
