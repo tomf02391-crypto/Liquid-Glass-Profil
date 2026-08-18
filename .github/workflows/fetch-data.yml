@@ -1,17 +1,18 @@
-name: Orbit数据自动刷新
+name: Orbit数据自动刷新（BCLC官方规则）
 
 on:
   schedule:
-    # 每5分钟抓取一次（GitHub Actions cron 最小粒度5分钟）
+    # 每5分钟抓取一次（BCLC每3.5分钟一期）
     - cron: '*/5 * * * *'
   workflow_dispatch: # 允许手动触发
 
 permissions:
-  contents: write # 需要写权限来提交数据文件
+  contents: write
 
 jobs:
   fetch:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -21,17 +22,30 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: 抓取最新数据
+      # bclc_calc.py 只用标准库，fetch_data.py 也只用 urllib
+      # 不需要安装任何第三方依赖
+
+      - name: 抓取并计算开奖数据（BCLC规则）
         run: python scripts/fetch_data.py
+        continue-on-error: true
 
       - name: 提交数据
         run: |
           git config user.name "Orbit Bot"
           git config user.email "bot@orbit-engine.local"
-          git add data/latest.json
+          git add data/latest.json scripts/bclc_calc.py scripts/fetch_data.py
           if git diff --cached --quiet; then
             echo "数据无变化，跳过提交"
           else
-            git commit -m "auto: 刷新开奖数据 $(date -u '+%Y-%m-%d %H:%M') UTC"
+            git commit -m "auto: 刷新开奖数据(BCLC规则) $(date -u '+%Y-%m-%d %H:%M') UTC"
             git push
+          fi
+
+      - name: 诊断与兜底
+        if: failure()
+        run: |
+          echo "::warning::抓取失败，检查数据文件"
+          ls -la data/ || mkdir -p data
+          if [ ! -f data/latest.json ] || [ ! -s data/latest.json ]; then
+            echo "数据文件缺失或为空，下一次调度将自动重试"
           fi
